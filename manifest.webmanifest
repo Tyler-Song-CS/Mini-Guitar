@@ -1,0 +1,18 @@
+{
+  "name": "Mini Guitar",
+  "short_name": "Mini Guitar",
+  "description": "A phone-first chord strum instrument.",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f3f5f0",
+  "theme_color": "#18201d",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#18201d">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Mini Guitar">
+    <title>Mini Guitar</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="styles.css?v=40">
+  </head>
+  <body>
+    <main class="app-shell" aria-label="Mini Guitar chord strum mode">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <h1>Mini Guitar</h1>
+            <p>Chord Strum</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button id="performanceModeButton" class="mode-toggle" type="button" aria-pressed="false">Play</button>
+          <div class="active-chord" aria-live="polite">
+            <span id="selectedChord">C</span>
+            <span id="selectedVoicing">x32010</span>
+          </div>
+        </div>
+      </header>
+
+      <section class="sequence-panel" aria-labelledby="sequenceTitle">
+        <div class="sequence-heading">
+          <div class="sequence-title-row">
+            <h2 id="sequenceTitle">Song Builder</h2>
+            <span id="unsavedIndicator" class="unsaved-indicator" hidden>Unsaved changes</span>
+            <label class="sequence-toggle">
+              <input id="autoAdvanceToggle" type="checkbox">
+              <span>Auto advance</span>
+            </label>
+          </div>
+          <div class="sequence-actions">
+            <button id="addChordButton" class="is-primary" type="button">Add C</button>
+          </div>
+        </div>
+        <div class="sequence-list" id="sequenceList" aria-live="polite" aria-keyshortcuts="Q E"></div>
+        <div class="sequence-managers">
+          <details class="chord-manage">
+            <summary id="chordsSummary">Chords</summary>
+            <div class="chord-manage-body">
+              <div class="sequence-chord-browser" role="group" aria-labelledby="chordsSummary">
+                <div class="bank-tabs" role="tablist" aria-label="Chord bank">
+                  <button class="bank-tab is-active" type="button" data-bank="open" role="tab" aria-selected="true">Open</button>
+                  <button class="bank-tab" type="button" data-bank="minor" role="tab" aria-selected="false">Minor</button>
+                  <button class="bank-tab" type="button" data-bank="seventh" role="tab" aria-selected="false">7th</button>
+                </div>
+                <label class="search-field" aria-label="Search chords">
+                  <input id="chordSearch" type="search" autocomplete="off" placeholder="Search chords">
+                </label>
+                <div class="chord-grid" id="chordGrid"></div>
+              </div>
+            </div>
+          </details>
+          <details class="song-manage">
+            <summary>Songs</summary>
+            <div class="song-manage-body">
+              <div class="song-controls">
+                <select id="songSelect" aria-label="Saved song"></select>
+                <input id="songNameInput" type="text" autocomplete="off" maxlength="42" placeholder="Song name" aria-label="Song name">
+                <div class="song-action-row">
+                  <button id="saveSongButton" type="button">Save</button>
+                  <button id="loadSongButton" type="button">Load</button>
+                  <button id="deleteSongButton" class="song-delete-button" type="button">Delete</button>
+                </div>
+              </div>
+            </div>
+          </details>
+          <details class="sequence-manage">
+            <summary>Sections</summary>
+            <div class="sequence-manage-body">
+              <div class="section-controls">
+                <select id="sectionSelect" aria-label="Current section"></select>
+                <textarea id="sectionLyricsInput" rows="3" maxlength="1200" placeholder="Section lyrics" aria-label="Section lyrics"></textarea>
+                <div class="section-action-row">
+                  <button id="addSectionButton" type="button">New</button>
+                  <button id="renameSectionButton" type="button">Rename</button>
+                  <button id="duplicateSectionButton" type="button">Duplicate</button>
+                  <button id="moveSectionUpButton" type="button">Up</button>
+                  <button id="moveSectionDownButton" type="button">Down</button>
+                  <button id="deleteSectionButton" class="section-delete-button" type="button">Delete</button>
+                </div>
+              </div>
+            </div>
+          </details>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <section class="instrument-panel" aria-labelledby="instrumentTitle">
+          <div class="instrument-header">
+            <h2 id="instrumentTitle">Strings</h2>
+          </div>
+
+          <div class="performance-strip" id="performanceStrip" aria-label="Performance chord sequence">
+            <button id="performancePrevButton" class="performance-nav" type="button" aria-label="Previous chord">&larr;</button>
+            <div id="performanceChords" class="performance-chords" aria-live="polite"></div>
+            <button id="performanceNextButton" class="performance-nav" type="button" aria-label="Next chord">&rarr;</button>
+          </div>
+
+          <div class="guitar-body">
+            <div class="sound-hole" aria-hidden="true"></div>
+            <div class="strum-surface" id="strumSurface" role="application" aria-label="Swipe across any range of guitar strings" aria-keyshortcuts="T Y U I O P"></div>
+            <div class="bridge" aria-hidden="true">
+              <span></span>
+            </div>
+          </div>
+        </section>
+
+        <section class="control-panel" aria-labelledby="controlsTitle">
+          <h2 id="controlsTitle">Acoustic</h2>
+
+          <div class="control-row">
+            <label class="switch-control">
+              <input id="muteToggle" type="checkbox">
+              <span>Palm mute</span>
+            </label>
+            <div class="capo-control" aria-label="Capo">
+              <span>Capo</span>
+              <button id="capoDown" type="button" aria-label="Lower capo">-</button>
+              <strong id="capoValue">0</strong>
+              <button id="capoUp" type="button" aria-label="Raise capo">+</button>
+            </div>
+          </div>
+
+          <div class="strum-buttons" aria-label="Strum buttons">
+            <button id="downStrum" type="button" aria-label="Down strum" aria-keyshortcuts="ArrowDown">&darr;</button>
+            <button id="upStrum" type="button" aria-label="Up strum" aria-keyshortcuts="ArrowUp">&uarr;</button>
+          </div>
+        </section>
+      </section>
+    </main>
+    <script src="vendor/webaudiofont/WebAudioFontPlayer.js"></script>
+    <script src="vendor/webaudiofont/0250_LK_AcousticSteel_SF2_file.js"></script>
+    <script src="app.js?v=96"></script>
+  </body>
+</html>

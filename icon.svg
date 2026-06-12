@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Mini Guitar">
+  <rect width="512" height="512" rx="96" fill="#18201d"/>
+  <circle cx="218" cy="286" r="128" fill="#9b6942"/>
+  <circle cx="218" cy="286" r="54" fill="#15100d"/>
+  <rect x="258" y="230" width="178" height="42" rx="21" fill="#2b7a68" transform="rotate(-18 258 230)"/>
+  <rect x="95" y="248" width="258" height="12" rx="6" fill="#f7f4ed"/>
+  <rect x="95" y="282" width="258" height="9" rx="5" fill="#dce2df"/>
+  <rect x="95" y="314" width="258" height="7" rx="4" fill="#c8d0cc"/>
+  <rect x="92" y="206" width="42" height="164" rx="14" fill="#c85f3b"/>
+</svg>
