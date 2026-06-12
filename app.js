@@ -38,8 +38,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v106";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=106";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v109";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=109";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -355,6 +355,7 @@ let deleteSectionButton;
 let autoAdvanceToggle;
 let unsavedIndicator;
 let strumSurface;
+let instrumentPanel;
 let appShell;
 let performanceModeButton;
 let performanceChords;
@@ -408,6 +409,7 @@ function init() {
   autoAdvanceToggle = document.querySelector("#autoAdvanceToggle");
   unsavedIndicator = document.querySelector("#unsavedIndicator");
   strumSurface = document.querySelector("#strumSurface");
+  instrumentPanel = document.querySelector(".instrument-panel");
   appShell = document.querySelector(".app-shell");
   performanceModeButton = document.querySelector("#performanceModeButton");
   performanceChords = document.querySelector("#performanceChords");
@@ -567,6 +569,9 @@ function bindControls() {
   strumSurface.addEventListener("pointermove", handlePointerMove);
   strumSurface.addEventListener("pointerup", handlePointerEnd);
   strumSurface.addEventListener("pointercancel", handlePointerEnd);
+  strumSurface.addEventListener("touchmove", preventStrumSurfaceScroll, { passive: false });
+  instrumentPanel.addEventListener("touchmove", preventStrumSurfaceScroll, { passive: false });
+  document.querySelector(".guitar-body").addEventListener("touchmove", preventStrumSurfaceScroll, { passive: false });
 }
 
 function armAudio() {
@@ -1768,10 +1773,48 @@ function activeSectionTitleHeight(activeSection) {
 }
 
 function scrollSelectedSequenceChordIntoView() {
+  if (scrollSelectedLyricMarkerIntoView()) {
+    return;
+  }
+
   sequenceList.querySelector(".sequence-chip.is-active")?.scrollIntoView({
     block: "nearest",
     inline: "center",
   });
+}
+
+function scrollSelectedLyricMarkerIntoView() {
+  const marker = sequenceList.querySelector(".lyric-chord.is-active");
+
+  if (!marker) {
+    return false;
+  }
+
+  const listPadding = 10;
+  const listRect = sequenceList.getBoundingClientRect();
+  const markerRect = marker.getBoundingClientRect();
+
+  if (markerRect.top < listRect.top + listPadding) {
+    sequenceList.scrollTop += markerRect.top - listRect.top - listPadding;
+  } else if (markerRect.bottom > listRect.bottom - listPadding) {
+    sequenceList.scrollTop += markerRect.bottom - listRect.bottom + listPadding;
+  }
+
+  const lyrics = marker.closest(".sequence-lyrics");
+
+  if (lyrics) {
+    const lyricPadding = 12;
+    const lyricRect = lyrics.getBoundingClientRect();
+    const nextMarkerRect = marker.getBoundingClientRect();
+
+    if (nextMarkerRect.left < lyricRect.left + lyricPadding) {
+      lyrics.scrollLeft += nextMarkerRect.left - lyricRect.left - lyricPadding;
+    } else if (nextMarkerRect.right > lyricRect.right - lyricPadding) {
+      lyrics.scrollLeft += nextMarkerRect.right - lyricRect.right + lyricPadding;
+    }
+  }
+
+  return true;
 }
 
 function sectionPlacementSummary(chords) {
@@ -3096,7 +3139,18 @@ function updateAudioReadyState() {
   document.documentElement.dataset.audioReady = acousticPresetReady ? "ready" : "warming";
 }
 
+function preventDefaultIfCancelable(event) {
+  if (event.cancelable) {
+    event.preventDefault();
+  }
+}
+
+function preventStrumSurfaceScroll(event) {
+  preventDefaultIfCancelable(event);
+}
+
 function handlePointerDown(event) {
+  preventDefaultIfCancelable(event);
   const strum = beginStrum();
   strumSurface.setPointerCapture(event.pointerId);
   state.pointerId = event.pointerId;
@@ -3113,6 +3167,7 @@ function handlePointerMove(event) {
     return;
   }
 
+  preventDefaultIfCancelable(event);
   const nextString = stringIndexFromPointer(event);
   if (nextString === state.lastString) {
     return;

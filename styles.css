@@ -24,6 +24,7 @@
 html,
 body {
   min-height: 100%;
+  overscroll-behavior: none;
 }
 
 body {
@@ -164,6 +165,11 @@ h1 {
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.72);
   box-shadow: 0 16px 36px rgba(31, 40, 36, 0.1);
+}
+
+.instrument-panel {
+  touch-action: none;
+  overscroll-behavior: contain;
 }
 
 .control-panel {
@@ -361,6 +367,8 @@ h2 {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
+  touch-action: none;
+  overscroll-behavior: contain;
   border-radius: 8px;
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.18), transparent 24%, rgba(255, 255, 255, 0.12) 68%, transparent),
@@ -386,6 +394,8 @@ h2 {
   display: grid;
   grid-template-rows: repeat(6, minmax(0, 1fr));
   touch-action: none;
+  overscroll-behavior: contain;
+  -webkit-user-select: none;
   user-select: none;
   cursor: pointer;
 }
