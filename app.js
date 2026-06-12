@@ -32,13 +32,14 @@ const NOISE_BUFFER_POOL_SIZE = 8;
 const SEQUENCE_STORAGE_KEY = "mini-guitar.sequence.v1";
 const SAVED_SONGS_STORAGE_KEY = "mini-guitar.songs.v1";
 const SETTINGS_STORAGE_KEY = "mini-guitar.settings.v1";
+const SONG_EXPORT_FORMAT = "mini-guitar.song.v1";
 const DEFAULT_SECTION_NAME = "Song";
 const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v104";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=104";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v106";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=106";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -340,6 +341,9 @@ let songNameInput;
 let saveSongButton;
 let loadSongButton;
 let deleteSongButton;
+let exportSongButton;
+let importSongButton;
+let songImportInput;
 let sectionSelect;
 let sectionLyricsInput;
 let addSectionButton;
@@ -390,6 +394,9 @@ function init() {
   saveSongButton = document.querySelector("#saveSongButton");
   loadSongButton = document.querySelector("#loadSongButton");
   deleteSongButton = document.querySelector("#deleteSongButton");
+  exportSongButton = document.querySelector("#exportSongButton");
+  importSongButton = document.querySelector("#importSongButton");
+  songImportInput = document.querySelector("#songImportInput");
   sectionSelect = document.querySelector("#sectionSelect");
   sectionLyricsInput = document.querySelector("#sectionLyricsInput");
   addSectionButton = document.querySelector("#addSectionButton");
@@ -526,6 +533,9 @@ function bindControls() {
   saveSongButton.addEventListener("click", saveCurrentSong);
   loadSongButton.addEventListener("click", loadSelectedSong);
   deleteSongButton.addEventListener("click", deleteSelectedSong);
+  exportSongButton.addEventListener("click", exportCurrentSong);
+  importSongButton.addEventListener("click", openSongImportPicker);
+  songImportInput.addEventListener("change", importSelectedSongFile);
   performanceModeButton.addEventListener("click", togglePerformanceMode);
   performancePrevButton.addEventListener("click", () => moveSequenceSelection(-1));
   performanceNextButton.addEventListener("click", () => moveSequenceSelection(1));
@@ -1151,6 +1161,119 @@ function deleteSelectedSong() {
 
   saveSongs();
   renderSongSelect();
+}
+
+function exportCurrentSong() {
+  const song = currentSongSnapshotForTransfer();
+  const payload = {
+    format: SONG_EXPORT_FORMAT,
+    exportedAt: new Date().toISOString(),
+    song: serializeSavedSong(song),
+  };
+  const blob = new Blob([`${JSON.stringify(payload, null, 2)}\n`], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${songFileName(song.name)}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function currentSongSnapshotForTransfer() {
+  ensureActiveSection();
+
+  const selectedSong = selectedSavedSong();
+  const fallbackName = selectedSong?.name ?? suggestedSongName();
+  const name = sanitizeSongName(songNameInput.value || fallbackName) || DEFAULT_SONG_NAME;
+  return createSavedSongSnapshot(name, selectedSong?.id ?? state.activeSongId ?? createSongId());
+}
+
+function openSongImportPicker() {
+  songImportInput.value = "";
+  songImportInput.click();
+}
+
+async function importSelectedSongFile(event) {
+  const file = event.target.files?.[0];
+
+  if (!file) {
+    return;
+  }
+
+  try {
+    const importedSong = parseImportedSong(await file.text());
+    saveImportedSong(importedSong);
+  } catch (_) {
+    window.alert("Could not import that song file.");
+  } finally {
+    songImportInput.value = "";
+  }
+}
+
+function parseImportedSong(fileText) {
+  const parsedValue = JSON.parse(fileText);
+  const songValue = parsedValue?.format === SONG_EXPORT_FORMAT ? parsedValue.song : parsedValue;
+  const name = sanitizeSongName(songValue?.name);
+
+  if (!name) {
+    throw new Error("Missing song name");
+  }
+
+  const savedSequence = normalizeSavedSequence(songValue);
+  return {
+    version: 1,
+    id: typeof songValue?.id === "string" && songValue.id.trim() ? songValue.id.trim() : createSongId(),
+    name,
+    savedAt: typeof songValue?.savedAt === "string" ? songValue.savedAt : new Date().toISOString(),
+    activeSectionId: savedSequence.activeSectionId,
+    sections: savedSequence.sections.map(serializeSavedSection),
+    sequenceIndex: savedSequence.sequenceIndex,
+    sequence: savedSequence.sequence.map(serializeSavedChord),
+  };
+}
+
+function saveImportedSong(song) {
+  const importedSong = {
+    ...song,
+    id: uniqueSongId(song.id),
+    name: uniqueSongName(song.name),
+    savedAt: new Date().toISOString(),
+  };
+
+  state.savedSongs.push(importedSong);
+  applySavedSequence(normalizeSavedSequence(importedSong));
+  state.activeSongId = importedSong.id;
+  songNameInput.value = importedSong.name;
+  saveSongs();
+  saveSequence();
+  updateChordDisplay();
+  renderChordGrid();
+  renderSequence({ scrollSelectedChord: state.sequenceIndex !== null });
+}
+
+function uniqueSongId(songId) {
+  const safeId = typeof songId === "string" && songId.trim() ? songId.trim() : createSongId();
+
+  if (!state.savedSongs.some((song) => song.id === safeId)) {
+    return safeId;
+  }
+
+  let nextId = createSongId();
+  while (state.savedSongs.some((song) => song.id === nextId)) {
+    nextId = createSongId();
+  }
+
+  return nextId;
+}
+
+function songFileName(songName) {
+  const safeName = sanitizeSongName(songName)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return safeName ? `mini-guitar-${safeName}` : "mini-guitar-song";
 }
 
 function selectedSavedSong() {
