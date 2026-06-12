@@ -38,8 +38,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v109";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=109";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v111";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=111";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -3158,7 +3158,7 @@ function handlePointerDown(event) {
   state.pointerStrumContext = strum;
   state.pointerHasStrummed = false;
   state.lastString = stringIndexFromPointer(event);
-  state.lastY = event.clientY;
+  state.lastY = pointerStrumAxisPosition(event);
   state.lastTime = performance.now();
 }
 
@@ -3174,7 +3174,8 @@ function handlePointerMove(event) {
   }
 
   const now = performance.now();
-  const distance = Math.abs(event.clientY - state.lastY);
+  const axisPosition = pointerStrumAxisPosition(event);
+  const distance = Math.abs(axisPosition - state.lastY);
   const elapsed = Math.max(16, now - state.lastTime);
   const velocity = pointerStrumVelocity(distance, elapsed);
   const isFirstStrum = !state.pointerHasStrummed;
@@ -3188,7 +3189,7 @@ function handlePointerMove(event) {
   });
   state.pointerHasStrummed = true;
   state.lastString = nextString;
-  state.lastY = event.clientY;
+  state.lastY = axisPosition;
   state.lastTime = now;
 }
 
@@ -3222,9 +3223,15 @@ function handlePointerEnd(event) {
 
 function stringIndexFromPointer(event) {
   const rect = strumSurface.getBoundingClientRect();
-  const stringHeight = rect.height / STRINGS.length;
-  const rawIndex = Math.floor((event.clientY - rect.top) / stringHeight);
+  const isHorizontalStringLayout = state.performanceMode;
+  const stringSize = (isHorizontalStringLayout ? rect.height : rect.width) / STRINGS.length;
+  const pointerOffset = isHorizontalStringLayout ? event.clientY - rect.top : event.clientX - rect.left;
+  const rawIndex = Math.floor(pointerOffset / stringSize);
   return clamp(rawIndex, 0, STRINGS.length - 1);
+}
+
+function pointerStrumAxisPosition(event) {
+  return state.performanceMode ? event.clientY : event.clientX;
 }
 
 function pointerStrumVelocity(distance, elapsed) {
