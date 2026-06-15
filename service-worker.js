@@ -1,11 +1,11 @@
-const CACHE_NAME = "mini-guitar-v111";
+const CACHE_NAME = "mini-guitar-v116";
 const APP_ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
-  "./styles.css?v=46",
+  "./styles.css?v=47",
   "./app.js",
-  "./app.js?v=102",
+  "./app.js?v=107",
   "./vendor/webaudiofont/WebAudioFontPlayer.js",
   "./vendor/webaudiofont/0250_LK_AcousticSteel_SF2_file.js",
   "./manifest.webmanifest",

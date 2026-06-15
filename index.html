@@ -9,7 +9,7 @@
     <title>Mini Guitar</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="styles.css?v=46">
+    <link rel="stylesheet" href="styles.css?v=47">
   </head>
   <body>
     <main class="app-shell" aria-label="Mini Guitar chord strum mode">
@@ -68,12 +68,11 @@
               <div class="song-controls">
                 <select id="songSelect" aria-label="Saved song"></select>
                 <input id="songNameInput" type="text" autocomplete="off" maxlength="42" placeholder="Song name" aria-label="Song name">
-                <div class="song-action-row">
+                <div class="song-action-grid">
+                  <button id="newSongButton" type="button">New</button>
                   <button id="saveSongButton" type="button">Save</button>
                   <button id="loadSongButton" type="button">Load</button>
                   <button id="deleteSongButton" class="song-delete-button" type="button">Delete</button>
-                </div>
-                <div class="song-transfer-row">
                   <button id="exportSongButton" type="button">Export</button>
                   <button id="importSongButton" type="button">Import</button>
                   <input id="songImportInput" type="file" accept="application/json,.json" hidden>
@@ -147,6 +146,6 @@
     </main>
     <script src="vendor/webaudiofont/WebAudioFontPlayer.js"></script>
     <script src="vendor/webaudiofont/0250_LK_AcousticSteel_SF2_file.js"></script>
-    <script src="app.js?v=102"></script>
+    <script src="app.js?v=107"></script>
   </body>
 </html>

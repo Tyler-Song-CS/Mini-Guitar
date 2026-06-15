@@ -669,15 +669,10 @@ h2 {
 }
 
 .section-action-row,
-.song-action-row,
-.song-transfer-row {
+.song-action-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
-}
-
-.song-transfer-row {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .section-controls select,
@@ -1336,8 +1331,7 @@ button:active {
   }
 
   .section-action-row,
-  .song-action-row,
-  .song-transfer-row {
+  .song-action-grid {
     gap: 4px;
   }
 

@@ -29,6 +29,8 @@ const FAST_STRUM_RELEASE_AFTER = 0.1;
 const PICK_NOISE_DURATION = 0.026;
 const MUTED_NOISE_DURATION = 0.18;
 const NOISE_BUFFER_POOL_SIZE = 8;
+const AUDIO_WARMUP_DELAY = 80;
+const AUDIO_WARMUP_IDLE_TIMEOUT = 800;
 const SEQUENCE_STORAGE_KEY = "mini-guitar.sequence.v1";
 const SAVED_SONGS_STORAGE_KEY = "mini-guitar.songs.v1";
 const SETTINGS_STORAGE_KEY = "mini-guitar.settings.v1";
@@ -38,8 +40,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v111";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=111";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v116";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=116";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -330,6 +332,7 @@ const state = {
 };
 
 let audioContext;
+let audioResumePromise;
 let masterGain;
 let compressor;
 let chordGrid;
@@ -338,6 +341,7 @@ let sequenceList;
 let addChordButton;
 let songSelect;
 let songNameInput;
+let newSongButton;
 let saveSongButton;
 let loadSongButton;
 let deleteSongButton;
@@ -392,6 +396,7 @@ function init() {
   addChordButton = document.querySelector("#addChordButton");
   songSelect = document.querySelector("#songSelect");
   songNameInput = document.querySelector("#songNameInput");
+  newSongButton = document.querySelector("#newSongButton");
   saveSongButton = document.querySelector("#saveSongButton");
   loadSongButton = document.querySelector("#loadSongButton");
   deleteSongButton = document.querySelector("#deleteSongButton");
@@ -432,6 +437,7 @@ function init() {
   renderSequence();
   updateChordDisplay();
   bindControls();
+  scheduleAudioWarmup();
   registerServiceWorker();
 }
 
@@ -532,6 +538,7 @@ function bindControls() {
   deleteSectionButton.addEventListener("click", deleteActiveSection);
   songSelect.addEventListener("change", handleSongSelectionChange);
   songNameInput.addEventListener("input", updateSongActionState);
+  newSongButton.addEventListener("click", createNewSong);
   saveSongButton.addEventListener("click", saveCurrentSong);
   loadSongButton.addEventListener("click", loadSelectedSong);
   deleteSongButton.addEventListener("click", deleteSelectedSong);
@@ -576,6 +583,19 @@ function bindControls() {
 
 function armAudio() {
   ensureAudio();
+}
+
+function scheduleAudioWarmup() {
+  const warmAudio = () => {
+    ensureAudio({ resume: false });
+  };
+
+  if ("requestIdleCallback" in window) {
+    window.requestIdleCallback(warmAudio, { timeout: AUDIO_WARMUP_IDLE_TIMEOUT });
+    return;
+  }
+
+  window.setTimeout(warmAudio, AUDIO_WARMUP_DELAY);
 }
 
 function armAudioFromKeyboard(event) {
@@ -758,7 +778,7 @@ function selectChord(chord, sequenceIndex = null, { scrollSectionToTop = false }
 
   updateChordDisplay();
   renderChordGrid();
-  renderSequence({ scrollSectionToTop, scrollSelectedChord: sequenceIndex !== null && !scrollSectionToTop });
+  renderSequence({ scrollSectionToTop, scrollSelectedChord: sequenceIndex !== null });
 
   if (sequenceIndex !== null) {
     saveSequence();
@@ -1102,6 +1122,25 @@ function uniqueSectionName(name, currentSectionId = null) {
   }
 
   return nextName;
+}
+
+function createNewSong() {
+  if (songHasUnsavedChanges() && !window.confirm("Discard unsaved changes and start a new song?")) {
+    return;
+  }
+
+  const section = createSequenceSection(DEFAULT_SECTION_NAME);
+  state.activeSongId = null;
+  state.sections = [section];
+  state.activeSectionId = section.id;
+  state.sequence = [];
+  state.sequenceIndex = null;
+  state.chord = CHORD_BANKS.open[0];
+  songNameInput.value = "";
+  saveSequence();
+  updateChordDisplay();
+  renderChordGrid();
+  renderSequence();
 }
 
 function saveCurrentSong() {
@@ -1712,7 +1751,9 @@ function renderSequence({ scrollSelectedChord = false, scrollSectionToTop = fals
 
   if (scrollSectionToTop) {
     scrollActiveSequenceSectionToTop();
-  } else if (scrollSelectedChord) {
+  }
+
+  if (scrollSelectedChord) {
     scrollSelectedSequenceChordIntoView();
   }
 
@@ -1792,13 +1833,30 @@ function scrollSelectedLyricMarkerIntoView() {
 
   const listPadding = 10;
   const listRect = sequenceList.getBoundingClientRect();
+  const markerLine = marker.closest(".lyrics-line");
+  const lyricLine = associatedLyricLineForMarker(marker);
+  const visibleTop = listRect.top + listPadding;
+  const visibleBottom = listRect.bottom - listPadding;
+  const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+  const blockRects = [markerLine, lyricLine]
+    .filter(Boolean)
+    .map((element) => element.getBoundingClientRect());
   const markerRect = marker.getBoundingClientRect();
+  const blockTop = blockRects.length ? Math.min(...blockRects.map((rect) => rect.top)) : markerRect.top;
+  const blockBottom = blockRects.length ? Math.max(...blockRects.map((rect) => rect.bottom)) : markerRect.bottom;
+  const blockHeight = Math.max(0, blockBottom - blockTop);
 
-  if (markerRect.top < listRect.top + listPadding) {
-    sequenceList.scrollTop += markerRect.top - listRect.top - listPadding;
-  } else if (markerRect.bottom > listRect.bottom - listPadding) {
-    sequenceList.scrollTop += markerRect.bottom - listRect.bottom + listPadding;
+  if (blockTop < visibleTop || blockBottom > visibleBottom) {
+    if (blockHeight <= visibleHeight) {
+      sequenceList.scrollTop += blockTop < visibleTop
+        ? blockTop - visibleTop
+        : blockBottom - visibleBottom;
+    } else {
+      sequenceList.scrollTop += markerRect.top - visibleTop;
+    }
   }
+
+  scrollLyricMarkerPairIntoViewport(marker, markerLine, lyricLine);
 
   const lyrics = marker.closest(".sequence-lyrics");
 
@@ -1815,6 +1873,52 @@ function scrollSelectedLyricMarkerIntoView() {
   }
 
   return true;
+}
+
+function scrollLyricMarkerPairIntoViewport(marker, markerLine, lyricLine) {
+  const viewportPadding = 10;
+  const viewportTop = viewportPadding;
+  const viewportBottom = window.innerHeight - viewportPadding;
+  const viewportHeight = Math.max(0, viewportBottom - viewportTop);
+  const blockRects = [markerLine, lyricLine]
+    .filter(Boolean)
+    .map((element) => element.getBoundingClientRect());
+  const markerRect = marker.getBoundingClientRect();
+  const blockTop = blockRects.length ? Math.min(...blockRects.map((rect) => rect.top)) : markerRect.top;
+  const blockBottom = blockRects.length ? Math.max(...blockRects.map((rect) => rect.bottom)) : markerRect.bottom;
+  const blockHeight = Math.max(0, blockBottom - blockTop);
+
+  if (blockTop >= viewportTop && blockBottom <= viewportBottom) {
+    return;
+  }
+
+  window.scrollBy({
+    top: blockHeight <= viewportHeight
+      ? (blockTop < viewportTop ? blockTop - viewportTop : blockBottom - viewportBottom)
+      : markerRect.top - viewportTop,
+    left: 0,
+    behavior: "auto",
+  });
+}
+
+function associatedLyricLineForMarker(marker) {
+  const markerLine = marker.closest(".lyrics-line");
+
+  if (!markerLine?.classList?.contains("is-chord-line")) {
+    return markerLine;
+  }
+
+  let line = markerLine.nextElementSibling;
+
+  while (line?.classList?.contains("lyrics-line")) {
+    if (line.classList.contains("is-lyric-line")) {
+      return line;
+    }
+
+    line = line.nextElementSibling;
+  }
+
+  return markerLine;
 }
 
 function sectionPlacementSummary(chords) {
@@ -3103,10 +3207,21 @@ function formatVoicing(voicing) {
   return voicing.map((fret) => (fret === null ? "x" : String(fret))).join("");
 }
 
-function ensureAudio() {
+function ensureAudio({ resume = true } = {}) {
   if (!audioContext) {
     const AudioEngine = window.AudioContext || window.webkitAudioContext;
-    audioContext = new AudioEngine();
+    if (!AudioEngine) {
+      document.documentElement.dataset.audioReady = "missing";
+      return false;
+    }
+
+    try {
+      audioContext = new AudioEngine();
+    } catch (_) {
+      document.documentElement.dataset.audioReady = "missing";
+      return false;
+    }
+
     masterGain = audioContext.createGain();
     compressor = audioContext.createDynamicsCompressor();
 
@@ -3121,13 +3236,14 @@ function ensureAudio() {
     compressor.connect(audioContext.destination);
   }
 
-  if (audioContext.state === "suspended") {
-    audioContext.resume().then(updateAudioReadyState).catch(() => {});
+  if (resume) {
+    resumeAudioContext();
   }
 
   prepareNoiseBuffers();
   prepareAcousticSamples();
   updateAudioReadyState();
+  return true;
 }
 
 function updateAudioReadyState() {
@@ -3137,6 +3253,23 @@ function updateAudioReadyState() {
   }
 
   document.documentElement.dataset.audioReady = acousticPresetReady ? "ready" : "warming";
+}
+
+function resumeAudioContext() {
+  if (!audioContext || audioContext.state !== "suspended" || typeof audioContext.resume !== "function") {
+    return Promise.resolve();
+  }
+
+  if (!audioResumePromise) {
+    audioResumePromise = audioContext.resume()
+      .catch(() => {})
+      .finally(() => {
+        audioResumePromise = null;
+        updateAudioReadyState();
+      });
+  }
+
+  return audioResumePromise;
 }
 
 function preventDefaultIfCancelable(event) {
@@ -3250,7 +3383,9 @@ function pointerStrumVelocity(distance, elapsed) {
 }
 
 function playCrossedStrings(fromIndex, toIndex, velocity, strumId = nextStrumId, { includeFrom = false } = {}) {
-  ensureAudio();
+  if (!ensureAudio()) {
+    return;
+  }
 
   if (fromIndex === toIndex) {
     playString(toIndex, humanizedVelocity(velocity, toIndex, 0), audioContext.currentTime, 0, strumId);
@@ -3277,7 +3412,10 @@ function playCrossedStrings(fromIndex, toIndex, velocity, strumId = nextStrumId,
 }
 
 function playFullStrum(direction) {
-  ensureAudio();
+  if (!ensureAudio()) {
+    return;
+  }
+
   const now = audioContext.currentTime;
   const isFastStrum = now - lastFullStrumTime < FAST_STRUM_INTERVAL;
   const strumId = ++nextStrumId;
@@ -3362,11 +3500,11 @@ function strumProfile(direction) {
 }
 
 function beginStrum() {
-  ensureAudio();
+  const audioReady = ensureAudio();
   return {
     id: ++nextStrumId,
-    sampledNotes: getActiveSampledNotes(),
-    transientSounds: [...activeTransientSounds],
+    sampledNotes: audioReady ? getActiveSampledNotes() : [],
+    transientSounds: audioReady ? [...activeTransientSounds] : [],
   };
 }
 
@@ -3449,7 +3587,8 @@ function playString(stringIndex, velocity, when, direction = 0, strumId = nextSt
     return;
   }
 
-  showStringFeedback(stringIndex, "is-muted");
+  playFallbackAcousticString(stringIndex, fret, velocity, when, direction, strumId);
+  showStringFeedback(stringIndex, "is-ringing");
 }
 
 function prepareAcousticSamples() {
@@ -3515,6 +3654,52 @@ function playSampledAcousticString(stringIndex, fret, velocity, when, direction,
   envelope.strumId = strumId;
   document.documentElement.dataset.acousticEngine = "sampled";
   return true;
+}
+
+function playFallbackAcousticString(stringIndex, fret, velocity, when, direction, strumId) {
+  if (!audioContext || !masterGain) {
+    return;
+  }
+
+  const profile = strumProfile(direction);
+  const midiPitch = STRINGS[stringIndex].midi + fret + state.capo;
+  const frequency = midiToFrequency(midiPitch);
+  const duration = state.palmMute
+    ? Math.max(0.12, profile.palmSustain * 0.78)
+    : Math.min(0.84, profile.sustain * 0.34);
+  const peak = Math.max(
+    0.0001,
+    velocity * (state.palmMute ? profile.palmVolume * 0.46 : profile.volume * 0.42),
+  );
+  const oscillator = audioContext.createOscillator();
+  const filter = audioContext.createBiquadFilter();
+  const gain = audioContext.createGain();
+  const pan = audioContext.createStereoPanner();
+  const releaseAt = when + duration;
+
+  oscillator.type = "triangle";
+  oscillator.frequency.setValueAtTime(frequency * randomBetween(0.997, 1.003), when);
+
+  filter.type = "lowpass";
+  filter.Q.value = 0.85;
+  filter.frequency.setValueAtTime(Math.min(7200, 1300 + frequency * 4.2), when);
+  filter.frequency.exponentialRampToValueAtTime(Math.max(360, frequency * 1.55), releaseAt);
+
+  gain.gain.setValueAtTime(0.0001, when);
+  gain.gain.exponentialRampToValueAtTime(peak, when + 0.006);
+  gain.gain.exponentialRampToValueAtTime(0.0001, releaseAt);
+
+  pan.pan.value = (stringIndex - 2.5) / 8;
+
+  oscillator.connect(filter);
+  filter.connect(gain);
+  gain.connect(pan);
+  pan.connect(masterGain);
+
+  oscillator.start(when);
+  oscillator.stop(releaseAt + 0.02);
+  trackTransientSound(oscillator, gain, strumId);
+  document.documentElement.dataset.acousticEngine = "fallback";
 }
 
 function playMutedString(stringIndex, velocity, when, direction, strumId) {
@@ -3621,6 +3806,10 @@ function createNoiseBuffer(duration) {
   }
 
   return buffer;
+}
+
+function midiToFrequency(midi) {
+  return 440 * (2 ** ((midi - 69) / 12));
 }
 
 function showStringFeedback(stringIndex, className) {
