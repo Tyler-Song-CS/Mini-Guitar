@@ -40,8 +40,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v116";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=116";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v117";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=117";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -488,8 +488,10 @@ function renderChordGrid() {
 }
 
 function bindControls() {
-  window.addEventListener("pointerdown", armAudio, { capture: true, once: true });
-  window.addEventListener("keydown", armAudioFromKeyboard, { capture: true });
+  armAudioOnNextGesture();
+  document.addEventListener("visibilitychange", handleAudioVisibilityChange);
+  window.addEventListener("pageshow", handleAudioPageResume);
+  window.addEventListener("focus", handleAudioPageResume);
 
   chordSearch.addEventListener("input", (event) => {
     state.searchQuery = event.target.value.trim().toLowerCase();
@@ -581,8 +583,40 @@ function bindControls() {
   document.querySelector(".guitar-body").addEventListener("touchmove", preventStrumSurfaceScroll, { passive: false });
 }
 
+function armAudioOnNextGesture() {
+  window.addEventListener("pointerdown", armAudio, { capture: true, once: true });
+  window.addEventListener("touchstart", armAudio, { capture: true, once: true, passive: true });
+  window.addEventListener("keydown", armAudioFromKeyboard, { capture: true });
+}
+
 function armAudio() {
   ensureAudio();
+}
+
+function handleAudioVisibilityChange() {
+  if (document.visibilityState === "visible") {
+    handleAudioPageResume();
+  }
+}
+
+function handleAudioPageResume() {
+  if (document.visibilityState === "hidden") {
+    return;
+  }
+
+  if (audioContext?.state === "closed") {
+    resetAudioEngine();
+  }
+
+  if (audioContext) {
+    prepareNoiseBuffers();
+    prepareAcousticSamples();
+    updateAudioReadyState();
+  } else {
+    scheduleAudioWarmup();
+  }
+
+  armAudioOnNextGesture();
 }
 
 function scheduleAudioWarmup() {
@@ -727,7 +761,10 @@ function handleKeyboardStrum(event) {
 }
 
 function playKeyboardString(stringIndex) {
-  ensureAudio();
+  if (!ensureAudio()) {
+    return;
+  }
+
   const strumId = ++nextStrumId;
   playString(
     stringIndex,
@@ -3208,6 +3245,10 @@ function formatVoicing(voicing) {
 }
 
 function ensureAudio({ resume = true } = {}) {
+  if (audioContext?.state === "closed") {
+    resetAudioEngine();
+  }
+
   if (!audioContext) {
     const AudioEngine = window.AudioContext || window.webkitAudioContext;
     if (!AudioEngine) {
@@ -3221,6 +3262,8 @@ function ensureAudio({ resume = true } = {}) {
       document.documentElement.dataset.audioReady = "missing";
       return false;
     }
+
+    audioContext.addEventListener?.("statechange", handleAudioStateChange);
 
     masterGain = audioContext.createGain();
     compressor = audioContext.createDynamicsCompressor();
@@ -3246,6 +3289,28 @@ function ensureAudio({ resume = true } = {}) {
   return true;
 }
 
+function handleAudioStateChange(event) {
+  if (event?.target && event.target !== audioContext) {
+    return;
+  }
+
+  if (!audioContext) {
+    return;
+  }
+
+  if (audioContext.state === "closed") {
+    resetAudioEngine();
+    armAudioOnNextGesture();
+    return;
+  }
+
+  updateAudioReadyState();
+
+  if (audioContext.state !== "running") {
+    armAudioOnNextGesture();
+  }
+}
+
 function updateAudioReadyState() {
   if (!audioContext) {
     document.documentElement.dataset.audioReady = "missing";
@@ -3256,7 +3321,7 @@ function updateAudioReadyState() {
 }
 
 function resumeAudioContext() {
-  if (!audioContext || audioContext.state !== "suspended" || typeof audioContext.resume !== "function") {
+  if (!audioContext || audioContext.state === "running" || audioContext.state === "closed" || typeof audioContext.resume !== "function") {
     return Promise.resolve();
   }
 
@@ -3270,6 +3335,23 @@ function resumeAudioContext() {
   }
 
   return audioResumePromise;
+}
+
+function resetAudioEngine() {
+  audioContext?.removeEventListener?.("statechange", handleAudioStateChange);
+  audioContext = null;
+  audioResumePromise = null;
+  masterGain = null;
+  compressor = null;
+  acousticPlayer = null;
+  acousticPresetStarted = false;
+  acousticPresetReady = false;
+  acousticStringPanners = [];
+  activeTransientSounds = [];
+  noiseBufferPools = {};
+  noiseBufferPoolIndexes = {};
+  document.documentElement.dataset.acousticLibrary = "loading";
+  updateAudioReadyState();
 }
 
 function preventDefaultIfCancelable(event) {
