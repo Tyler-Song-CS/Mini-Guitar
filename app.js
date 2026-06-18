@@ -40,8 +40,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v119";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=119";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v123";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=123";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -806,7 +806,7 @@ function updateChordDisplay() {
   renderPerformanceStrip();
 }
 
-function selectChord(chord, sequenceIndex = null, { scrollSectionToTop = false } = {}) {
+function selectChord(chord, sequenceIndex = null, { scrollSelectedChord = sequenceIndex !== null, scrollSectionToTop = false } = {}) {
   state.chord = chord;
   state.sequenceIndex = sequenceIndex;
 
@@ -816,7 +816,7 @@ function selectChord(chord, sequenceIndex = null, { scrollSectionToTop = false }
 
   updateChordDisplay();
   renderChordGrid();
-  renderSequence({ scrollSectionToTop, scrollSelectedChord: sequenceIndex !== null });
+  renderSequence({ scrollSectionToTop, scrollSelectedChord });
 
   if (sequenceIndex !== null) {
     saveSequence();
@@ -1705,6 +1705,9 @@ function renderSequence({ scrollSelectedChord = false, scrollSectionToTop = fals
   ensureActiveSection();
   renderSongSelect();
   renderSectionSelect();
+  const chordRowScrollPositions = scrollSelectedChord || scrollSectionToTop
+    ? null
+    : sequenceChordRowScrollPositions();
   sequenceList.replaceChildren();
 
   const hasSectionLyrics = state.sections.some((section) => normalizeSectionLyrics(section.lyrics).trim());
@@ -1789,6 +1792,8 @@ function renderSequence({ scrollSelectedChord = false, scrollSectionToTop = fals
 
   if (scrollSectionToTop) {
     scrollActiveSequenceSectionToTop();
+  } else if (!scrollSelectedChord) {
+    restoreSequenceChordRowScrollPositions(chordRowScrollPositions);
   }
 
   if (scrollSelectedChord) {
@@ -1796,6 +1801,30 @@ function renderSequence({ scrollSelectedChord = false, scrollSectionToTop = fals
   }
 
   renderPerformanceStrip();
+}
+
+function sequenceChordRowScrollPositions() {
+  const scrollPositions = new Map();
+
+  sequenceList.querySelectorAll(".sequence-section-chords").forEach((row) => {
+    scrollPositions.set(row.dataset.sectionId, row.scrollLeft);
+  });
+
+  return scrollPositions;
+}
+
+function restoreSequenceChordRowScrollPositions(scrollPositions) {
+  if (!scrollPositions?.size) {
+    return;
+  }
+
+  sequenceList.querySelectorAll(".sequence-section-chords").forEach((row) => {
+    const scrollLeft = scrollPositions.get(row.dataset.sectionId);
+
+    if (Number.isFinite(scrollLeft)) {
+      row.scrollLeft = scrollLeft;
+    }
+  });
 }
 
 function scrollActiveSequenceSectionToTop() {
@@ -2001,10 +2030,6 @@ function renderSequenceChip(chord, index) {
   chip.classList.toggle("is-lyric-unplaced", !isPlacedInLyrics);
   chip.dataset.index = String(index);
   chip.draggable = false;
-  chip.addEventListener("pointerdown", (event) => handleSequencePointerDown(event, index));
-  chip.addEventListener("pointermove", handleSequencePointerMove);
-  chip.addEventListener("pointerup", handleSequencePointerEnd);
-  chip.addEventListener("pointercancel", handleSequencePointerCancel);
   chip.addEventListener("dragstart", (event) => handleSequenceDragStart(event, index));
   chip.addEventListener("dragover", (event) => handleSequenceChipDragOver(event, index, chord.sectionId));
   chip.addEventListener("drop", handleSequenceDrop);
@@ -2028,7 +2053,20 @@ function renderSequenceChip(chord, index) {
       return;
     }
 
-    selectChord(chord, index);
+    selectChord(chord, index, { scrollSelectedChord: false });
+  });
+
+  const dragButton = document.createElement("button");
+  dragButton.className = "sequence-drag";
+  dragButton.type = "button";
+  dragButton.setAttribute("aria-label", `Move ${chord.name}`);
+  dragButton.addEventListener("pointerdown", (event) => handleSequencePointerDown(event, index));
+  dragButton.addEventListener("pointermove", handleSequencePointerMove);
+  dragButton.addEventListener("pointerup", handleSequencePointerEnd);
+  dragButton.addEventListener("pointercancel", handleSequencePointerCancel);
+  dragButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
   });
 
   const deleteButton = document.createElement("button");
@@ -2041,7 +2079,7 @@ function renderSequenceChip(chord, index) {
     removeSequenceChord(index);
   });
 
-  chip.append(selectButton, deleteButton);
+  chip.append(dragButton, selectButton, deleteButton);
   return chip;
 }
 
@@ -2233,15 +2271,25 @@ function handleSequencePointerDown(event, index) {
     return;
   }
 
+  const fromHandle = event.currentTarget.closest(".sequence-drag") !== null;
+  const captureTarget = event.currentTarget;
   sequencePointerDrag = {
-    chip: event.currentTarget,
+    chip: event.currentTarget.closest(".sequence-chip"),
+    captureTarget,
     fromIndex: index,
+    fromHandle,
     hasCapture: false,
     isDragging: false,
     pointerId: event.pointerId,
     startX: event.clientX,
     startY: event.clientY,
   };
+
+  if (fromHandle && typeof captureTarget.setPointerCapture === "function") {
+    event.preventDefault();
+    captureTarget.setPointerCapture(event.pointerId);
+    sequencePointerDrag.hasCapture = true;
+  }
 }
 
 function handleSequencePointerMove(event) {
@@ -2269,7 +2317,7 @@ function handleSequencePointerMove(event) {
     sequencePointerDrag.chip.classList.add("is-dragging");
 
     if (!sequencePointerDrag.hasCapture) {
-      sequencePointerDrag.chip.setPointerCapture(event.pointerId);
+      sequencePointerDrag.captureTarget.setPointerCapture(event.pointerId);
       sequencePointerDrag.hasCapture = true;
     }
   }
@@ -2278,7 +2326,7 @@ function handleSequencePointerMove(event) {
 }
 
 function sequencePointerIsHorizontalScroll(event, deltaX, deltaY) {
-  if (sequencePointerDrag?.isDragging || event.pointerType !== "touch") {
+  if (sequencePointerDrag?.isDragging || sequencePointerDrag?.fromHandle || event.pointerType !== "touch") {
     return false;
   }
 
@@ -2295,8 +2343,8 @@ function handleSequencePointerEnd(event) {
     return;
   }
 
-  if (sequencePointerDrag.hasCapture && sequencePointerDrag.chip.hasPointerCapture(event.pointerId)) {
-    sequencePointerDrag.chip.releasePointerCapture(event.pointerId);
+  if (sequencePointerDrag.hasCapture && sequencePointerDrag.captureTarget.hasPointerCapture(event.pointerId)) {
+    sequencePointerDrag.captureTarget.releasePointerCapture(event.pointerId);
   }
 
   if (sequencePointerDrag.isDragging) {
