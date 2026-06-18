@@ -40,8 +40,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v126";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=126";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v141";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=141";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -367,6 +367,8 @@ let performanceModeButton;
 let performanceChords;
 let performancePrevButton;
 let performanceNextButton;
+let sequencePrevButton;
+let sequenceNextButton;
 let selectedChord;
 let selectedVoicing;
 let capoValue;
@@ -423,6 +425,8 @@ function init() {
   performanceChords = document.querySelector("#performanceChords");
   performancePrevButton = document.querySelector("#performancePrevButton");
   performanceNextButton = document.querySelector("#performanceNextButton");
+  sequencePrevButton = document.querySelector("#sequencePrevButton");
+  sequenceNextButton = document.querySelector("#sequenceNextButton");
   selectedChord = document.querySelector("#selectedChord");
   selectedVoicing = document.querySelector("#selectedVoicing");
   capoValue = document.querySelector("#capoValue");
@@ -553,6 +557,11 @@ function bindControls() {
   performanceModeButton.addEventListener("click", togglePerformanceMode);
   performancePrevButton.addEventListener("click", () => moveSequenceSelection(-1));
   performanceNextButton.addEventListener("click", () => moveSequenceSelection(1));
+  sequencePrevButton.addEventListener("click", () => moveSequenceSelection(-1));
+  sequenceNextButton.addEventListener("click", () => moveSequenceSelection(1));
+  document.querySelectorAll(".sequence-drawer-toggle").forEach((button) => {
+    button.addEventListener("click", () => toggleSequenceDrawer(button));
+  });
 
   document.querySelector("#muteToggle").addEventListener("change", (event) => {
     state.palmMute = event.target.checked;
@@ -684,8 +693,28 @@ function updatePerformanceMode() {
   renderPerformanceStrip();
 }
 
+function toggleSequenceDrawer(activeButton) {
+  const panelId = activeButton.getAttribute("aria-controls");
+  const activePanel = panelId ? document.getElementById(panelId) : null;
+  const shouldOpen = activeButton.getAttribute("aria-expanded") !== "true";
+
+  document.querySelectorAll(".sequence-drawer-toggle").forEach((button) => {
+    button.setAttribute("aria-expanded", "false");
+  });
+
+  document.querySelectorAll(".sequence-drawer-body").forEach((panel) => {
+    panel.hidden = true;
+  });
+
+  if (shouldOpen && activePanel) {
+    activeButton.setAttribute("aria-expanded", "true");
+    activePanel.hidden = false;
+  }
+}
+
 function renderPerformanceStrip() {
   if (!performanceChords) {
+    updateSequenceNavigationButtons();
     return;
   }
 
@@ -714,8 +743,7 @@ function renderPerformanceStrip() {
     performanceChords.append(button);
   });
 
-  performancePrevButton.disabled = state.sequence.length < 2;
-  performanceNextButton.disabled = state.sequence.length < 2;
+  updateSequenceNavigationButtons();
 
   if (state.performanceMode) {
     window.requestAnimationFrame(() => {
@@ -725,6 +753,16 @@ function renderPerformanceStrip() {
       });
     });
   }
+}
+
+function updateSequenceNavigationButtons() {
+  const isDisabled = state.sequence.length < 2;
+
+  [performancePrevButton, performanceNextButton, sequencePrevButton, sequenceNextButton].forEach((button) => {
+    if (button) {
+      button.disabled = isDisabled;
+    }
+  });
 }
 
 function handleKeyboardStrum(event) {

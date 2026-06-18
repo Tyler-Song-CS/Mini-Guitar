@@ -9,7 +9,7 @@
     <title>Mini Guitar</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="styles.css?v=54">
+    <link rel="stylesheet" href="styles.css?v=69">
   </head>
   <body>
     <main class="app-shell" aria-label="Mini Guitar chord strum mode">
@@ -45,57 +45,51 @@
         </div>
         <div class="sequence-list" id="sequenceList" aria-live="polite" aria-keyshortcuts="Q E"></div>
         <div class="sequence-managers">
-          <details class="chord-manage">
-            <summary id="chordsSummary">Chords</summary>
-            <div class="chord-manage-body">
-              <div class="sequence-chord-browser" role="group" aria-labelledby="chordsSummary">
-                <div class="bank-tabs" role="tablist" aria-label="Chord bank">
-                  <button class="bank-tab is-active" type="button" data-bank="open" role="tab" aria-selected="true">Open</button>
-                  <button class="bank-tab" type="button" data-bank="minor" role="tab" aria-selected="false">Minor</button>
-                  <button class="bank-tab" type="button" data-bank="seventh" role="tab" aria-selected="false">7th</button>
-                </div>
-                <label class="search-field" aria-label="Search chords">
-                  <input id="chordSearch" type="search" autocomplete="off" placeholder="Search chords">
-                </label>
-                <div class="chord-grid" id="chordGrid"></div>
+          <button id="chordsSummary" class="sequence-drawer-toggle chord-manage-toggle" type="button" aria-expanded="false" aria-controls="chordManageBody">Chords</button>
+          <button class="sequence-drawer-toggle song-manage-toggle" type="button" aria-expanded="false" aria-controls="songManageBody">Songs</button>
+          <button class="sequence-drawer-toggle sequence-manage-toggle" type="button" aria-expanded="false" aria-controls="sequenceManageBody">Sections</button>
+          <div id="chordManageBody" class="chord-manage-body sequence-drawer-body" hidden>
+            <div class="sequence-chord-browser" role="group" aria-labelledby="chordsSummary">
+              <div class="bank-tabs" role="tablist" aria-label="Chord bank">
+                <button class="bank-tab is-active" type="button" data-bank="open" role="tab" aria-selected="true">Open</button>
+                <button class="bank-tab" type="button" data-bank="minor" role="tab" aria-selected="false">Minor</button>
+                <button class="bank-tab" type="button" data-bank="seventh" role="tab" aria-selected="false">7th</button>
+              </div>
+              <label class="search-field" aria-label="Search chords">
+                <input id="chordSearch" type="search" autocomplete="off" placeholder="Search chords">
+              </label>
+              <div class="chord-grid" id="chordGrid"></div>
+            </div>
+          </div>
+          <div id="songManageBody" class="song-manage-body sequence-drawer-body" hidden>
+            <div class="song-controls">
+              <select id="songSelect" aria-label="Saved song"></select>
+              <input id="songNameInput" type="text" autocomplete="off" maxlength="42" placeholder="Song name" aria-label="Song name">
+              <div class="song-action-grid">
+                <button id="newSongButton" type="button">New</button>
+                <button id="saveSongButton" type="button">Save</button>
+                <button id="loadSongButton" type="button">Load</button>
+                <button id="deleteSongButton" class="song-delete-button" type="button">Delete</button>
+                <button id="exportSongButton" type="button">Export</button>
+                <button id="importSongButton" type="button">Import</button>
+                <input id="songImportInput" type="file" accept="application/json,.json" hidden>
               </div>
             </div>
-          </details>
-          <details class="song-manage">
-            <summary>Songs</summary>
-            <div class="song-manage-body">
-              <div class="song-controls">
-                <select id="songSelect" aria-label="Saved song"></select>
-                <input id="songNameInput" type="text" autocomplete="off" maxlength="42" placeholder="Song name" aria-label="Song name">
-                <div class="song-action-grid">
-                  <button id="newSongButton" type="button">New</button>
-                  <button id="saveSongButton" type="button">Save</button>
-                  <button id="loadSongButton" type="button">Load</button>
-                  <button id="deleteSongButton" class="song-delete-button" type="button">Delete</button>
-                  <button id="exportSongButton" type="button">Export</button>
-                  <button id="importSongButton" type="button">Import</button>
-                  <input id="songImportInput" type="file" accept="application/json,.json" hidden>
-                </div>
+          </div>
+          <div id="sequenceManageBody" class="sequence-manage-body sequence-drawer-body" hidden>
+            <div class="section-controls">
+              <select id="sectionSelect" aria-label="Current section"></select>
+              <textarea id="sectionLyricsInput" rows="3" maxlength="1200" placeholder="Section lyrics" aria-label="Section lyrics"></textarea>
+              <div class="section-action-row">
+                <button id="addSectionButton" type="button">New</button>
+                <button id="renameSectionButton" type="button">Rename</button>
+                <button id="duplicateSectionButton" type="button">Duplicate</button>
+                <button id="moveSectionUpButton" type="button">Up</button>
+                <button id="moveSectionDownButton" type="button">Down</button>
+                <button id="deleteSectionButton" class="section-delete-button" type="button">Delete</button>
               </div>
             </div>
-          </details>
-          <details class="sequence-manage">
-            <summary>Sections</summary>
-            <div class="sequence-manage-body">
-              <div class="section-controls">
-                <select id="sectionSelect" aria-label="Current section"></select>
-                <textarea id="sectionLyricsInput" rows="3" maxlength="1200" placeholder="Section lyrics" aria-label="Section lyrics"></textarea>
-                <div class="section-action-row">
-                  <button id="addSectionButton" type="button">New</button>
-                  <button id="renameSectionButton" type="button">Rename</button>
-                  <button id="duplicateSectionButton" type="button">Duplicate</button>
-                  <button id="moveSectionUpButton" type="button">Up</button>
-                  <button id="moveSectionDownButton" type="button">Down</button>
-                  <button id="deleteSectionButton" class="section-delete-button" type="button">Delete</button>
-                </div>
-              </div>
-            </div>
-          </details>
+          </div>
         </div>
       </section>
 
@@ -124,22 +118,26 @@
           <div class="control-header">
             <h2 id="controlsTitle">Acoustic</h2>
             <div class="capo-control" aria-label="Capo">
-              <span>Capo</span>
+              <span>Capo <strong id="capoValue">0</strong></span>
               <button id="capoDown" type="button" aria-label="Lower capo">-</button>
-              <strong id="capoValue">0</strong>
               <button id="capoUp" type="button" aria-label="Raise capo">+</button>
             </div>
           </div>
 
           <div class="control-row" aria-label="Acoustic options">
-            <label class="switch-control">
+            <label class="switch-control mute-control">
               <input id="muteToggle" type="checkbox">
               <span>Mute</span>
             </label>
-            <label class="switch-control">
+            <label class="switch-control auto-control">
               <input id="autoAdvanceToggle" type="checkbox">
               <span>Auto</span>
             </label>
+          </div>
+
+          <div class="chord-nav-buttons" aria-label="Chord navigation">
+            <button id="sequencePrevButton" type="button" aria-label="Previous chord" aria-keyshortcuts="Q">&larr;</button>
+            <button id="sequenceNextButton" type="button" aria-label="Next chord" aria-keyshortcuts="E">&rarr;</button>
           </div>
 
           <div class="strum-buttons" aria-label="Strum buttons">
@@ -151,6 +149,6 @@
     </main>
     <script src="vendor/webaudiofont/WebAudioFontPlayer.js"></script>
     <script src="vendor/webaudiofont/0250_LK_AcousticSteel_SF2_file.js"></script>
-    <script src="app.js?v=117"></script>
+    <script src="app.js?v=132"></script>
   </body>
 </html>

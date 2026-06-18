@@ -652,14 +652,10 @@ h2 {
 
 .sequence-managers {
   min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
   gap: 6px;
-}
-
-.sequence-managers details[open] {
-  flex: 1 1 100%;
 }
 
 .section-controls,
@@ -749,19 +745,13 @@ h2 {
   color: #7d8782;
 }
 
-.sequence-manage,
-.chord-manage,
-.song-manage {
+.sequence-drawer-toggle {
+  width: 100%;
   min-width: 0;
-}
-
-.sequence-manage summary,
-.chord-manage summary,
-.song-manage summary {
-  width: max-content;
   min-height: 28px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   border: 1px solid rgba(24, 32, 29, 0.1);
   border-radius: 8px;
@@ -771,32 +761,40 @@ h2 {
   cursor: pointer;
   font-size: 0.74rem;
   font-weight: 850;
-  list-style: none;
 }
 
-.sequence-manage summary::-webkit-details-marker,
-.chord-manage summary::-webkit-details-marker,
-.song-manage summary::-webkit-details-marker {
-  display: none;
+.chord-manage-toggle {
+  grid-column: 1;
+  grid-row: 1;
 }
 
-.sequence-manage summary::after,
-.chord-manage summary::after,
-.song-manage summary::after {
+.song-manage-toggle {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.sequence-manage-toggle {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.sequence-drawer-toggle::after {
   content: "+";
   color: var(--brand);
   font-weight: 900;
 }
 
-.sequence-manage[open] summary::after,
-.chord-manage[open] summary::after,
-.song-manage[open] summary::after {
+.sequence-drawer-toggle[aria-expanded="true"]::after {
   content: "-";
 }
 
+.sequence-drawer-body,
 .sequence-manage-body,
 .chord-manage-body,
 .song-manage-body {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  min-width: 0;
   margin-top: 6px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -804,9 +802,7 @@ h2 {
   gap: 6px;
 }
 
-.sequence-manage:not([open]) .sequence-manage-body,
-.chord-manage:not([open]) .chord-manage-body,
-.song-manage:not([open]) .song-manage-body {
+.sequence-drawer-body[hidden] {
   display: none;
 }
 
@@ -1179,7 +1175,8 @@ h2 {
 }
 
 .capo-control button,
-.strum-buttons button {
+.strum-buttons button,
+.chord-nav-buttons button {
   border: 0;
   border-radius: 8px;
   background: var(--brand-dark);
@@ -1207,17 +1204,32 @@ h2 {
   gap: 8px;
 }
 
+.chord-nav-buttons {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .strum-buttons button {
   min-height: 50px;
   font-size: 1.55rem;
+}
+
+.chord-nav-buttons button {
+  min-height: 42px;
+  font-size: 1.08rem;
+}
+
+.chord-nav-buttons button:disabled {
+  background: #d7ddd8;
+  color: #7d8782;
 }
 
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
-.sequence-manage summary:focus-visible,
-.chord-manage summary:focus-visible,
 .strum-surface:focus-visible {
   outline: 3px solid var(--focus);
   outline-offset: 2px;
@@ -1352,10 +1364,25 @@ button:active {
   }
 
   .control-panel {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-content: start;
     gap: 7px;
     padding: 10px;
+  }
+
+  .control-panel .control-header,
+  .control-panel .control-row {
+    grid-column: 1 / -1;
+  }
+
+  .control-panel .chord-nav-buttons {
+    grid-column: 1;
+    gap: 5px;
+  }
+
+  .control-panel .strum-buttons {
+    grid-column: 2;
+    gap: 5px;
   }
 
   .sequence-panel {
@@ -1414,6 +1441,7 @@ button:active {
   .sequence-managers {
     grid-column: 1;
     grid-row: 2;
+    gap: 4px;
   }
 
   .sequence-chord-browser .bank-tabs {
@@ -1444,11 +1472,11 @@ button:active {
     margin-top: 5px;
   }
 
-  .sequence-manage summary,
-  .chord-manage summary,
-  .song-manage summary {
+  .sequence-drawer-toggle {
     min-height: 26px;
-    font-size: 0.7rem;
+    gap: 2px;
+    padding: 0 3px;
+    font-size: 0.62rem;
   }
 
   .sequence-manage-body,
@@ -1486,6 +1514,10 @@ button:active {
   }
 
   .strum-buttons button {
+    min-height: 44px;
+  }
+
+  .chord-nav-buttons button {
     min-height: 44px;
   }
 
@@ -1602,5 +1634,383 @@ button:active {
 
   .strum-surface {
     inset-left: 78px;
+  }
+}
+
+@media (orientation: portrait) and (max-width: 600px) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .app-shell {
+    height: 100svh;
+    min-height: 0;
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+    gap: 7px;
+    overflow: hidden;
+  }
+
+  .topbar {
+    flex: 0 0 auto;
+    min-height: 44px;
+    gap: 8px;
+  }
+
+  .brand {
+    gap: 8px;
+  }
+
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+  }
+
+  h1 {
+    font-size: 0.98rem;
+  }
+
+  .brand p {
+    display: none;
+  }
+
+  .topbar-actions {
+    gap: 6px;
+  }
+
+  .mode-toggle {
+    min-height: 34px;
+    padding: 0 10px;
+    font-size: 0.74rem;
+  }
+
+  .active-chord {
+    min-width: 86px;
+    padding: 5px 8px;
+  }
+
+  .active-chord span:first-child {
+    font-size: 1.08rem;
+  }
+
+  .active-chord span:last-child {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.62rem;
+    line-height: 1;
+  }
+
+  .sequence-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 8px;
+    gap: 7px;
+    grid-template-areas:
+      "heading"
+      "managers"
+      "list";
+    grid-template-rows: auto auto minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .sequence-heading {
+    grid-area: heading;
+    grid-template-columns: minmax(0, 1fr) minmax(58px, auto);
+    gap: 7px;
+  }
+
+  .sequence-title-row {
+    gap: 6px;
+  }
+
+  .sequence-title-row h2 {
+    font-size: 0.8rem;
+  }
+
+  .sequence-song-status {
+    font-size: 0.68rem;
+  }
+
+  .sequence-song-name {
+    max-width: min(52vw, 220px);
+  }
+
+  .sequence-actions {
+    min-width: 58px;
+    width: auto;
+  }
+
+  .sequence-actions button {
+    min-height: 30px;
+    padding: 0 7px;
+    font-size: 0.72rem;
+  }
+
+  .sequence-managers {
+    grid-area: managers;
+    flex: 0 0 auto;
+    gap: 5px;
+    overflow: visible;
+  }
+
+  .sequence-drawer-body:not([hidden]) {
+    max-height: 28svh;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .sequence-drawer-toggle {
+    min-height: 27px;
+    padding: 0 8px;
+    font-size: 0.7rem;
+  }
+
+  .sequence-manage-body,
+  .chord-manage-body,
+  .song-manage-body {
+    margin-top: 5px;
+  }
+
+  .section-action-row,
+  .song-action-grid {
+    gap: 5px;
+  }
+
+  .section-controls select,
+  .section-controls textarea,
+  .section-controls button,
+  .song-controls input,
+  .song-controls select,
+  .song-controls button {
+    min-height: 31px;
+    font-size: 0.72rem;
+  }
+
+  .section-controls textarea {
+    min-height: 56px;
+  }
+
+  .sequence-chord-browser .bank-tabs {
+    gap: 3px;
+    padding: 3px;
+  }
+
+  .sequence-chord-browser .bank-tab {
+    min-height: 27px;
+    padding: 0 6px;
+    font-size: 0.68rem;
+  }
+
+  .sequence-chord-browser .search-field {
+    margin-top: 6px;
+  }
+
+  .sequence-chord-browser .search-field input {
+    min-height: 32px;
+    font-size: 0.74rem;
+  }
+
+  .sequence-chord-browser .chord-grid {
+    max-height: min(20svh, 128px);
+    gap: 5px;
+    margin-top: 6px;
+  }
+
+  .sequence-chord-browser .chord-button {
+    min-height: 42px;
+    padding: 6px;
+  }
+
+  .sequence-list {
+    grid-area: list;
+    min-height: 0;
+    max-height: none;
+    gap: 7px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sequence-section {
+    gap: 4px;
+  }
+
+  .sequence-section-title {
+    min-height: 17px;
+    padding: 0 6px;
+    font-size: 0.64rem;
+  }
+
+  .sequence-section-chords {
+    min-height: 29px;
+  }
+
+  .sequence-chip {
+    min-width: 88px;
+    min-height: 28px;
+    grid-template-columns: 23px minmax(0, 1fr) 23px;
+  }
+
+  .sequence-select strong {
+    font-size: 0.68rem;
+  }
+
+  .sequence-lyrics {
+    font-size: 0.72rem;
+    line-height: 1.32;
+  }
+
+  .workspace {
+    flex: 0 0 auto;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto clamp(178px, 24svh, 218px);
+    gap: 6px;
+  }
+
+  .control-panel {
+    grid-row: 1;
+    padding: 7px;
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-areas:
+      "title mute auto capo capo capo"
+      "nav nav nav strums strums strums";
+    align-items: center;
+    gap: 5px;
+  }
+
+  .control-header {
+    display: contents;
+  }
+
+  .control-header h2 {
+    grid-area: title;
+    align-self: center;
+    font-size: 0.78rem;
+  }
+
+  .capo-control {
+    grid-area: capo;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(42px, 1fr) 26px 26px;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .capo-control span {
+    grid-column: 1;
+    align-self: center;
+    justify-self: end;
+    min-width: 0;
+    color: var(--muted);
+    font-size: 0.68rem;
+    font-weight: 800;
+  }
+
+  .capo-control strong {
+    display: inline;
+    min-width: auto;
+    margin-left: 4px;
+    font-size: 0.7rem;
+  }
+
+  .capo-control button {
+    width: 100%;
+    height: 26px;
+  }
+
+  #capoDown {
+    grid-column: 2;
+  }
+
+  #capoUp {
+    grid-column: 3;
+  }
+
+  .control-row {
+    display: contents;
+  }
+
+  .mute-control {
+    grid-area: mute;
+  }
+
+  .auto-control {
+    grid-area: auto;
+  }
+
+  .chord-nav-buttons {
+    grid-area: nav;
+    width: auto;
+    justify-self: stretch;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .switch-control {
+    min-height: 28px;
+    padding: 0 6px;
+    font-size: 0.7rem;
+  }
+
+  .strum-buttons {
+    grid-area: strums;
+    width: auto;
+    justify-self: stretch;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+  }
+
+  .strum-buttons button {
+    min-height: 34px;
+    font-size: 1.18rem;
+  }
+
+  .chord-nav-buttons button {
+    min-height: 34px;
+    font-size: 1rem;
+  }
+
+  .instrument-panel {
+    grid-row: 2;
+    min-height: 0;
+    padding: 8px;
+    gap: 0;
+  }
+
+  .app-shell.is-performance-mode .workspace {
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .app-shell.is-performance-mode .instrument-panel {
+    grid-row: 1;
+    gap: 8px;
+  }
+
+  .instrument-header {
+    display: none;
+  }
+
+  .guitar-body {
+    min-height: 0;
+  }
+
+  .app-shell:not(.is-performance-mode) .sound-hole {
+    width: clamp(54px, 12svh, 74px);
+  }
+
+  .app-shell:not(.is-performance-mode) .strum-surface {
+    inset: 10px 14px 30px;
+  }
+
+  .app-shell:not(.is-performance-mode) .string-row::after {
+    bottom: 3px;
+    min-width: 28px;
+    font-size: 0.58rem;
   }
 }
