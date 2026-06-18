@@ -40,8 +40,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v117";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=117";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v118";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=118";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -326,6 +326,7 @@ const state = {
   pointerStrumId: null,
   pointerStrumContext: null,
   pointerHasStrummed: false,
+  pointerDirection: null,
   lastString: null,
   lastY: 0,
   lastTime: 0,
@@ -3372,6 +3373,7 @@ function handlePointerDown(event) {
   state.pointerStrumId = strum.id;
   state.pointerStrumContext = strum;
   state.pointerHasStrummed = false;
+  state.pointerDirection = null;
   state.lastString = stringIndexFromPointer(event);
   state.lastY = pointerStrumAxisPosition(event);
   state.lastTime = performance.now();
@@ -3394,15 +3396,18 @@ function handlePointerMove(event) {
   const elapsed = Math.max(16, now - state.lastTime);
   const velocity = pointerStrumVelocity(distance, elapsed);
   const isFirstStrum = !state.pointerHasStrummed;
+  const direction = nextString > state.lastString ? 1 : -1;
+  const isDirectionChange = state.pointerDirection !== null && direction !== state.pointerDirection;
 
   if (isFirstStrum && state.pointerStrumContext) {
     duckActiveStrum(false, state.pointerStrumContext.sampledNotes, state.pointerStrumContext.transientSounds);
   }
 
   playCrossedStrings(state.lastString, nextString, velocity, state.pointerStrumId ?? nextStrumId, {
-    includeFrom: isFirstStrum,
+    includeFrom: isFirstStrum || isDirectionChange,
   });
   state.pointerHasStrummed = true;
+  state.pointerDirection = direction;
   state.lastString = nextString;
   state.lastY = axisPosition;
   state.lastTime = now;
@@ -3426,6 +3431,7 @@ function handlePointerEnd(event) {
 
   state.pointerStrumContext = null;
   state.pointerHasStrummed = false;
+  state.pointerDirection = null;
   state.lastString = null;
   if (strumSurface.hasPointerCapture(event.pointerId)) {
     strumSurface.releasePointerCapture(event.pointerId);
