@@ -40,8 +40,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v123";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=123";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v124";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=124";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -575,13 +575,20 @@ function bindControls() {
   bindStrumButton("#upStrum", -1);
   window.addEventListener("keydown", handleKeyboardStrum);
 
+  const guitarBody = document.querySelector(".guitar-body");
   strumSurface.addEventListener("pointerdown", handlePointerDown);
   strumSurface.addEventListener("pointermove", handlePointerMove);
   strumSurface.addEventListener("pointerup", handlePointerEnd);
   strumSurface.addEventListener("pointercancel", handlePointerEnd);
+  strumSurface.addEventListener("touchstart", preventInstrumentTouchDefault, { passive: false });
+  strumSurface.addEventListener("touchend", preventInstrumentTouchDefault, { passive: false });
+  strumSurface.addEventListener("touchcancel", preventInstrumentTouchDefault, { passive: false });
   strumSurface.addEventListener("touchmove", preventStrumSurfaceScroll, { passive: false });
+  guitarBody.addEventListener("touchstart", preventInstrumentTouchDefault, { passive: false });
+  guitarBody.addEventListener("touchend", preventInstrumentTouchDefault, { passive: false });
+  guitarBody.addEventListener("touchcancel", preventInstrumentTouchDefault, { passive: false });
+  guitarBody.addEventListener("touchmove", preventStrumSurfaceScroll, { passive: false });
   instrumentPanel.addEventListener("touchmove", preventStrumSurfaceScroll, { passive: false });
-  document.querySelector(".guitar-body").addEventListener("touchmove", preventStrumSurfaceScroll, { passive: false });
 }
 
 function armAudioOnNextGesture() {
@@ -3428,6 +3435,10 @@ function preventDefaultIfCancelable(event) {
 }
 
 function preventStrumSurfaceScroll(event) {
+  preventDefaultIfCancelable(event);
+}
+
+function preventInstrumentTouchDefault(event) {
   preventDefaultIfCancelable(event);
 }
 

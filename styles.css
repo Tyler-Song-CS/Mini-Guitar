@@ -170,6 +170,10 @@ h1 {
 .instrument-panel {
   touch-action: none;
   overscroll-behavior: contain;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .control-panel {
@@ -369,6 +373,10 @@ h2 {
   min-height: 0;
   touch-action: none;
   overscroll-behavior: contain;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
   border-radius: 8px;
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.18), transparent 24%, rgba(255, 255, 255, 0.12) 68%, transparent),
@@ -402,6 +410,8 @@ h2 {
   grid-template-rows: repeat(6, minmax(0, 1fr));
   touch-action: none;
   overscroll-behavior: contain;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
   cursor: pointer;
