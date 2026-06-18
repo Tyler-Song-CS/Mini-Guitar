@@ -9,7 +9,7 @@
     <title>Mini Guitar</title>
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="styles.css?v=52">
+    <link rel="stylesheet" href="styles.css?v=54">
   </head>
   <body>
     <main class="app-shell" aria-label="Mini Guitar chord strum mode">
@@ -34,14 +34,13 @@
         <div class="sequence-heading">
           <div class="sequence-title-row">
             <h2 id="sequenceTitle">Song Builder</h2>
-            <span id="unsavedIndicator" class="unsaved-indicator" hidden>Unsaved changes</span>
-            <label class="sequence-toggle">
-              <input id="autoAdvanceToggle" type="checkbox">
-              <span>Auto advance</span>
-            </label>
+            <span class="sequence-song-status">
+              <span id="songBuilderSongName" class="sequence-song-name">Untitled Song</span>
+              <span id="unsavedIndicator" class="unsaved-indicator" hidden aria-label="Unsaved changes"></span>
+            </span>
           </div>
           <div class="sequence-actions">
-            <button id="addChordButton" class="is-primary" type="button">Add C</button>
+            <button id="addChordButton" class="is-primary" type="button" aria-label="Add C">+ C</button>
           </div>
         </div>
         <div class="sequence-list" id="sequenceList" aria-live="polite" aria-keyshortcuts="Q E"></div>
@@ -122,19 +121,25 @@
         </section>
 
         <section class="control-panel" aria-labelledby="controlsTitle">
-          <h2 id="controlsTitle">Acoustic</h2>
-
-          <div class="control-row">
-            <label class="switch-control">
-              <input id="muteToggle" type="checkbox">
-              <span>Palm mute</span>
-            </label>
+          <div class="control-header">
+            <h2 id="controlsTitle">Acoustic</h2>
             <div class="capo-control" aria-label="Capo">
               <span>Capo</span>
               <button id="capoDown" type="button" aria-label="Lower capo">-</button>
               <strong id="capoValue">0</strong>
               <button id="capoUp" type="button" aria-label="Raise capo">+</button>
             </div>
+          </div>
+
+          <div class="control-row" aria-label="Acoustic options">
+            <label class="switch-control">
+              <input id="muteToggle" type="checkbox">
+              <span>Mute</span>
+            </label>
+            <label class="switch-control">
+              <input id="autoAdvanceToggle" type="checkbox">
+              <span>Auto</span>
+            </label>
           </div>
 
           <div class="strum-buttons" aria-label="Strum buttons">
@@ -146,6 +151,6 @@
     </main>
     <script src="vendor/webaudiofont/WebAudioFontPlayer.js"></script>
     <script src="vendor/webaudiofont/0250_LK_AcousticSteel_SF2_file.js"></script>
-    <script src="app.js?v=115"></script>
+    <script src="app.js?v=117"></script>
   </body>
 </html>

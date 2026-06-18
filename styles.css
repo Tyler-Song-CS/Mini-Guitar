@@ -581,7 +581,7 @@ h2 {
   display: grid;
   grid-template-columns: 1fr;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .sequence-panel {
@@ -598,7 +598,7 @@ h2 {
 
 .sequence-heading {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(58px, auto);
   align-items: center;
   gap: 8px;
   min-width: 0;
@@ -612,48 +612,39 @@ h2 {
   gap: 8px;
 }
 
-.unsaved-indicator {
-  min-height: 22px;
+.sequence-song-status {
+  min-width: 0;
   display: inline-flex;
   align-items: center;
-  border: 1px solid rgba(224, 174, 68, 0.36);
-  border-radius: 999px;
-  background: rgba(224, 174, 68, 0.16);
-  color: #80611e;
-  padding: 0 8px;
-  font-size: 0.68rem;
-  font-weight: 900;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 850;
+}
+
+.sequence-song-name {
+  min-width: 0;
+  max-width: min(42vw, 220px);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.unsaved-indicator {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--focus);
+  box-shadow: 0 0 0 2px rgba(240, 184, 77, 0.2);
 }
 
 .unsaved-indicator[hidden] {
   display: none;
 }
 
-.sequence-toggle {
-  min-height: 32px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  border: 1px solid rgba(24, 32, 29, 0.1);
-  border-radius: 8px;
-  background: rgba(238, 243, 239, 0.86);
-  color: var(--ink);
-  padding: 0 9px 0 7px;
-  font-size: 0.76rem;
-  font-weight: 800;
-  white-space: nowrap;
-}
-
-.sequence-toggle input {
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  accent-color: var(--brand);
-}
-
 .sequence-actions {
-  min-width: min(100%, 112px);
+  min-width: min(100%, 68px);
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 6px;
@@ -1117,39 +1108,74 @@ h2 {
   box-shadow: inset 0 0 0 1px var(--brand);
 }
 
-.control-row {
+.control-header {
   grid-column: 1 / -1;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
+}
+
+.control-header h2 {
+  min-width: 0;
+  margin: 0;
+}
+
+.control-row {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .switch-control {
-  min-height: 40px;
+  position: relative;
+  min-height: 34px;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  color: var(--ink);
-  font-size: 0.86rem;
-  font-weight: 750;
+  justify-content: center;
+  border: 1px solid rgba(24, 32, 29, 0.12);
+  border-radius: 999px;
+  background: rgba(238, 243, 239, 0.9);
+  color: var(--muted);
+  padding: 0 10px;
+  font-size: 0.78rem;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .switch-control input {
-  width: 22px;
-  height: 22px;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
   accent-color: var(--brand);
+  cursor: pointer;
+  opacity: 0;
+}
+
+.switch-control:has(input:checked) {
+  border-color: rgba(43, 122, 104, 0.36);
+  background: var(--brand-dark);
+  color: #fff;
+}
+
+.switch-control:has(input:focus-visible) {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .capo-control {
-  min-height: 40px;
+  min-height: 32px;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.74rem;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .capo-control button,
@@ -1162,13 +1188,13 @@ h2 {
 }
 
 .capo-control button {
-  width: 34px;
-  height: 34px;
-  font-size: 1.1rem;
+  width: 30px;
+  height: 30px;
+  font-size: 1rem;
 }
 
 .capo-control strong {
-  min-width: 22px;
+  min-width: 20px;
   color: var(--ink);
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -1182,8 +1208,8 @@ h2 {
 }
 
 .strum-buttons button {
-  min-height: 44px;
-  font-size: 1.3rem;
+  min-height: 50px;
+  font-size: 1.55rem;
 }
 
 button:focus-visible,
@@ -1354,12 +1380,6 @@ button:active {
     gap: 6px;
   }
 
-  .sequence-toggle {
-    min-height: 30px;
-    padding: 0 7px 0 6px;
-    font-size: 0.7rem;
-  }
-
   .section-controls,
   .song-controls,
   .sequence-actions {
@@ -1466,22 +1486,12 @@ button:active {
   }
 
   .strum-buttons button {
-    min-height: 38px;
+    min-height: 44px;
   }
 
   .bank-tab {
     padding: 0 6px;
     font-size: 0.76rem;
-  }
-
-  .control-row {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .capo-control,
-  .switch-control {
-    justify-content: space-between;
   }
 
   .app-shell.is-performance-mode {

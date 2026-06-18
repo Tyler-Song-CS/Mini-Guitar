@@ -40,8 +40,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v124";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=124";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v126";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=126";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -342,6 +342,7 @@ let sequenceList;
 let addChordButton;
 let songSelect;
 let songNameInput;
+let songBuilderSongName;
 let newSongButton;
 let saveSongButton;
 let loadSongButton;
@@ -397,6 +398,7 @@ function init() {
   addChordButton = document.querySelector("#addChordButton");
   songSelect = document.querySelector("#songSelect");
   songNameInput = document.querySelector("#songNameInput");
+  songBuilderSongName = document.querySelector("#songBuilderSongName");
   newSongButton = document.querySelector("#newSongButton");
   saveSongButton = document.querySelector("#saveSongButton");
   loadSongButton = document.querySelector("#loadSongButton");
@@ -802,7 +804,8 @@ function isKeyboardEditingElement(element) {
 function updateChordDisplay() {
   selectedChord.textContent = state.chord.name;
   selectedVoicing.textContent = formatVoicing(state.chord.voicing);
-  addChordButton.textContent = `Add ${state.chord.name}`;
+  addChordButton.textContent = `+ ${state.chord.name}`;
+  addChordButton.setAttribute("aria-label", `Add ${state.chord.name}`);
 
   document.querySelectorAll(".chord-button").forEach((button) => {
     const isActive = button.dataset.chord === state.chord.name;
@@ -3115,8 +3118,13 @@ function updateSongActionState() {
   loadSongButton.disabled = !hasSelectedSong;
   deleteSongButton.disabled = !hasSelectedSong;
 
+  const activeSong = state.savedSongs.find((song) => song.id === state.activeSongId) ?? null;
+  const songName = sanitizeSongName(songNameInput.value || activeSong?.name || "") || DEFAULT_SONG_NAME;
+  songBuilderSongName.textContent = songName;
+  songBuilderSongName.title = songName;
   unsavedIndicator.hidden = !hasUnsavedChanges;
-  unsavedIndicator.textContent = state.activeSongId ? "Unsaved changes" : "Not saved";
+  unsavedIndicator.setAttribute("aria-label", state.activeSongId ? "Unsaved changes" : "Not saved");
+  unsavedIndicator.title = state.activeSongId ? "Unsaved changes" : "Not saved";
 }
 
 function songHasUnsavedChanges() {
