@@ -953,6 +953,9 @@ h2 {
   border-radius: 8px;
   overflow-x: auto;
   overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
+  -webkit-overflow-scrolling: touch;
 }
 
 .sequence-section-chords.is-drop-target {
@@ -990,7 +993,7 @@ h2 {
   align-items: stretch;
   overflow: hidden;
   cursor: grab;
-  touch-action: none;
+  touch-action: pan-x;
 }
 
 .sequence-chip.is-dragging {
@@ -1021,6 +1024,7 @@ h2 {
   background: transparent;
   color: inherit;
   cursor: inherit;
+  touch-action: pan-x;
 }
 
 .sequence-select {

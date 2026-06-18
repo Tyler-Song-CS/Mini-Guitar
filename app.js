@@ -40,8 +40,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v118";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=118";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v119";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=119";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -2256,6 +2256,11 @@ function handleSequencePointerMove(event) {
     return;
   }
 
+  if (sequencePointerIsHorizontalScroll(event, deltaX, deltaY)) {
+    clearSequencePointerDragState();
+    return;
+  }
+
   event.preventDefault();
 
   if (!sequencePointerDrag.isDragging) {
@@ -2270,6 +2275,19 @@ function handleSequencePointerMove(event) {
   }
 
   updateSequencePointerDropTarget(event.clientX, event.clientY);
+}
+
+function sequencePointerIsHorizontalScroll(event, deltaX, deltaY) {
+  if (sequencePointerDrag?.isDragging || event.pointerType !== "touch") {
+    return false;
+  }
+
+  const chordRow = sequencePointerDrag.chip.closest(".sequence-section-chords");
+  const canScrollHorizontally = chordRow && chordRow.scrollWidth > chordRow.clientWidth + 1;
+  const absX = Math.abs(deltaX);
+  const absY = Math.abs(deltaY);
+
+  return Boolean(canScrollHorizontally && absX > 10 && absX > absY * 1.25);
 }
 
 function handleSequencePointerEnd(event) {
