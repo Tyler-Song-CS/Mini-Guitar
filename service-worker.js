@@ -1,15 +1,18 @@
-const CACHE_NAME = "mini-guitar-v141";
+const CACHE_NAME = "mini-guitar-v142";
 const APP_ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./styles.css?v=69",
   "./app.js",
-  "./app.js?v=132",
+  "./app.js?v=133",
   "./vendor/webaudiofont/WebAudioFontPlayer.js",
   "./vendor/webaudiofont/0250_LK_AcousticSteel_SF2_file.js",
   "./manifest.webmanifest",
-  "./icon.svg",
+  "./favicon-32.png",
+  "./apple-touch-icon.png",
+  "./icon-192.png",
+  "./icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {
