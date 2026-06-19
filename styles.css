@@ -645,6 +645,7 @@ h2 {
 
 .sequence-actions {
   min-width: min(100%, 68px);
+  justify-self: end;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 6px;
@@ -720,7 +721,13 @@ h2 {
 }
 
 .sequence-actions .is-primary {
+  width: max-content;
+  min-width: 58px;
+  max-width: none;
+  justify-self: end;
   background: var(--brand);
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .sequence-actions .has-unsaved-changes {
@@ -979,6 +986,8 @@ h2 {
 }
 
 .sequence-chip {
+  flex: 0 0 auto;
+  width: max-content;
   min-width: 96px;
   min-height: 30px;
   border: 1px solid rgba(24, 32, 29, 0.12);
@@ -986,7 +995,7 @@ h2 {
   background: #fbfcfa;
   color: var(--ink);
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) 24px;
+  grid-template-columns: 24px max-content 24px;
   align-items: stretch;
   overflow: hidden;
   cursor: default;
@@ -1027,7 +1036,7 @@ h2 {
 
 .sequence-select {
   display: grid;
-  grid-template-columns: 5px minmax(0, 1fr);
+  grid-template-columns: 5px max-content;
   column-gap: 4px;
   align-content: center;
   align-items: center;
@@ -1037,9 +1046,8 @@ h2 {
 }
 
 .sequence-select strong {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  min-width: max-content;
+  overflow: visible;
   white-space: nowrap;
   font-size: 0.72rem;
   line-height: 1;
@@ -1850,7 +1858,7 @@ button:active {
   .sequence-chip {
     min-width: 88px;
     min-height: 28px;
-    grid-template-columns: 23px minmax(0, 1fr) 23px;
+    grid-template-columns: 23px max-content 23px;
   }
 
   .sequence-select strong {
