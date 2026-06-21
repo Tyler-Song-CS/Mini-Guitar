@@ -22,6 +22,7 @@ const POINTER_STRUM_MAX_VELOCITY = 1;
 const POINTER_STRUM_SLOW_SPEED = 0.14;
 const POINTER_STRUM_FAST_SPEED = 1.35;
 const POINTER_CROSSING_MIN_GAP = 0.016;
+const POINTER_INITIAL_STRUM_DISTANCE = 6;
 const POINTER_STRING_RETRIGGER_MS = 8;
 const STRUM_DUCK_LEVEL = 0.004;
 const STRUM_DUCK_TIME = 0.024;
@@ -42,8 +43,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v151";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=151";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v153";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=153";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -612,6 +613,10 @@ function armAudioOnNextGesture() {
 }
 
 function armAudio() {
+  if (isTouchAudioEnvironment()) {
+    return;
+  }
+
   ensureAudio();
 }
 
@@ -642,6 +647,10 @@ function handleAudioPageResume() {
 }
 
 function scheduleAudioWarmup() {
+  if (isTouchAudioEnvironment()) {
+    return;
+  }
+
   const warmAudio = () => {
     ensureAudio({ resume: false });
   };
@@ -652,6 +661,10 @@ function scheduleAudioWarmup() {
   }
 
   window.setTimeout(warmAudio, AUDIO_WARMUP_DELAY);
+}
+
+function isTouchAudioEnvironment() {
+  return navigator.maxTouchPoints > 0;
 }
 
 function armAudioFromKeyboard(event) {
@@ -3375,7 +3388,7 @@ function formatVoicing(voicing) {
 }
 
 function ensureAudio({ resume = true } = {}) {
-  if (audioContext?.state === "closed") {
+  if (audioContext?.state === "closed" || shouldRecreateTouchAudioContext(resume)) {
     resetAudioEngine();
   }
 
@@ -3447,17 +3460,34 @@ function updateAudioReadyState() {
     return;
   }
 
+  if (audioContext.state !== "running") {
+    document.documentElement.dataset.audioReady = "locked";
+    return;
+  }
+
   document.documentElement.dataset.audioReady = acousticPresetReady ? "ready" : "warming";
 }
 
+function shouldRecreateTouchAudioContext(resume) {
+  return resume
+    && isTouchAudioEnvironment()
+    && audioContext
+    && audioContext.state !== "running";
+}
+
 function resumeAudioContext() {
-  if (!audioContext || audioContext.state === "running" || audioContext.state === "closed" || typeof audioContext.resume !== "function") {
-    return Promise.resolve();
+  if (!audioContext || audioContext.state === "closed" || typeof audioContext.resume !== "function") {
+    return Promise.resolve(audioContext?.state === "running");
+  }
+
+  if (audioContext.state === "running") {
+    return Promise.resolve(true);
   }
 
   if (!audioResumePromise) {
     audioResumePromise = audioContext.resume()
       .catch(() => {})
+      .then(() => audioContext?.state === "running")
       .finally(() => {
         audioResumePromise = null;
         updateAudioReadyState();
@@ -3468,10 +3498,31 @@ function resumeAudioContext() {
 }
 
 function playAfterAudioResume(playback) {
-  resumeAudioContext().then(() => {
+  resumeAudioContext().then((isRunning) => {
+    if (isRunning && audioContext?.state === "running") {
+      playback();
+      return;
+    }
+
+    if (document.visibilityState === "hidden") {
+      return;
+    }
+
+    resetAudioEngine();
+    if (!ensureAudio()) {
+      return;
+    }
+
     if (audioContext?.state === "running") {
       playback();
+      return;
     }
+
+    resumeAudioContext().then((didResume) => {
+      if (didResume && audioContext?.state === "running") {
+        playback();
+      }
+    });
   });
 }
 
@@ -3554,16 +3605,38 @@ function handlePointerMove(event) {
     return;
   }
 
+  const elapsed = Math.max(16, now - state.lastTime);
   const crossedStrings = crossedPointerStringHits(state.lastY, axisPosition, state.lastTime, now);
   const isFirstStrum = !state.pointerHasStrummed;
   const direction = axisPosition > state.lastY ? 1 : -1;
+  const shouldStartWithTouchedString = isFirstStrum
+    && distance >= POINTER_INITIAL_STRUM_DISTANCE
+    && state.lastString !== null
+    && !crossedStrings.some((hit) => hit.stringIndex === state.lastString);
 
-  if (crossedStrings.length && isFirstStrum && state.pointerStrumContext) {
+  if (isFirstStrum && !crossedStrings.length && !shouldStartWithTouchedString) {
+    return;
+  }
+
+  const pointerHits = shouldStartWithTouchedString
+    ? [{
+        stringIndex: state.lastString,
+        direction,
+        crossingTime: state.lastTime,
+        velocity: pointerStrumVelocity(distance, elapsed),
+      }, ...crossedStrings]
+    : crossedStrings;
+
+  if (shouldStartWithTouchedString) {
+    state.pointerStringTimes[state.lastString] = state.lastTime;
+  }
+
+  if (pointerHits.length && isFirstStrum && state.pointerStrumContext) {
     duckActiveStrum(false, state.pointerStrumContext.sampledNotes, state.pointerStrumContext.transientSounds);
   }
 
-  if (crossedStrings.length) {
-    playPointerStringHits(crossedStrings, state.pointerStrumId ?? nextStrumId);
+  if (pointerHits.length) {
+    playPointerStringHits(pointerHits, state.pointerStrumId ?? nextStrumId);
     state.pointerHasStrummed = true;
   }
 
