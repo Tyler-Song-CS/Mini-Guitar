@@ -1,22 +1,22 @@
 :root {
   color-scheme: light;
-  --ink: #211b16;
-  --muted: #70665a;
-  --panel: #fffaf0;
-  --line: #e6d5bd;
-  --soft: #f5e7d2;
-  --field: #ead8bd;
-  --brand: #b87a24;
-  --brand-dark: #211915;
-  --accent: #9f5439;
-  --teal: #416d64;
-  --teal-soft: #dfebe5;
-  --gold: #c98d2d;
-  --wood: #ae7448;
-  --wood-dark: #5e3927;
+  --ink: #261c17;
+  --muted: #766a5d;
+  --panel: #fff9ed;
+  --line: #e5d6bf;
+  --soft: #f3e5d0;
+  --field: #eadbc4;
+  --brand: #c76f2b;
+  --brand-dark: #261c17;
+  --accent: #a85b38;
+  --teal: #52736d;
+  --teal-soft: #e0ebe6;
+  --gold: #c76f2b;
+  --wood: #a56a43;
+  --wood-dark: #533424;
   --string: #efe8de;
-  --string-shadow: #9a9187;
-  --focus: #d49a36;
+  --string-shadow: #8f857a;
+  --focus: #d18e34;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -33,9 +33,9 @@ body {
 body {
   margin: 0;
   background:
-    radial-gradient(circle at 18% 8%, rgba(201, 141, 45, 0.18), transparent 28rem),
-    radial-gradient(circle at 86% 18%, rgba(65, 109, 100, 0.11), transparent 26rem),
-    linear-gradient(135deg, #fff8ed 0%, #f2e0c8 46%, #f8ecd9 100%);
+    radial-gradient(circle at 18% 8%, rgba(199, 111, 43, 0.17), transparent 28rem),
+    radial-gradient(circle at 86% 18%, rgba(82, 115, 109, 0.12), transparent 26rem),
+    linear-gradient(135deg, #fff8ea 0%, #f8eddb 46%, #f1dfc5 100%);
   color: var(--ink);
   overflow-x: hidden;
   overflow-y: auto;
@@ -87,7 +87,7 @@ button {
   width: 42px;
   height: 42px;
   border-radius: 10px;
-  background: #e6c1a5 url("apple-touch-icon.png") center / cover no-repeat;
+  background: #eab7af url("apple-touch-icon.png") center / cover no-repeat;
   box-shadow: inset 0 0 0 1px rgba(31, 23, 23, 0.1), 0 10px 20px rgba(31, 23, 23, 0.16);
   flex: 0 0 auto;
 }
@@ -114,7 +114,7 @@ h1 {
   padding: 8px 10px;
   border: 1px solid rgba(31, 23, 23, 0.08);
   border-radius: 8px;
-  background: rgba(255, 250, 240, 0.8);
+  background: rgba(255, 249, 237, 0.82);
   box-shadow: 0 10px 26px rgba(31, 23, 23, 0.08);
   text-align: right;
 }
@@ -138,7 +138,7 @@ h1 {
   min-height: 38px;
   border: 1px solid rgba(31, 23, 23, 0.1);
   border-radius: 8px;
-  background: rgba(255, 250, 240, 0.78);
+  background: rgba(255, 249, 237, 0.78);
   color: var(--brand-dark);
   padding: 0 12px;
   font-size: 0.78rem;
@@ -147,7 +147,7 @@ h1 {
 }
 
 .mode-toggle.is-active {
-  border-color: rgba(184, 122, 36, 0.4);
+  border-color: rgba(199, 111, 43, 0.42);
   background: var(--brand-dark);
   color: #fff;
 }
@@ -165,7 +165,7 @@ h1 {
   min-width: 0;
   border: 1px solid rgba(31, 23, 23, 0.1);
   border-radius: 8px;
-  background: rgba(255, 250, 240, 0.8);
+  background: rgba(255, 249, 237, 0.82);
   box-shadow: 0 16px 36px rgba(31, 23, 23, 0.1);
 }
 
@@ -244,7 +244,7 @@ h1 {
 
 .performance-nav:disabled {
   background: var(--field);
-  color: #8a7c78;
+  color: #8c7d6f;
 }
 
 .performance-chip {
@@ -259,7 +259,7 @@ h1 {
   border-color: var(--brand);
   background: var(--brand-dark);
   color: #fff;
-  box-shadow: 0 8px 18px rgba(184, 122, 36, 0.22);
+  box-shadow: 0 8px 18px rgba(199, 111, 43, 0.22);
 }
 
 h2 {
@@ -273,7 +273,7 @@ h2 {
   gap: 4px;
   padding: 4px;
   border-radius: 8px;
-  background: rgba(245, 231, 210, 0.94);
+  background: rgba(243, 229, 208, 0.94);
 }
 
 .bank-tab {
@@ -302,7 +302,7 @@ h2 {
   min-height: 40px;
   border: 1px solid rgba(31, 23, 23, 0.12);
   border-radius: 8px;
-  background: rgba(255, 250, 240, 0.92);
+  background: rgba(255, 249, 237, 0.92);
   color: var(--ink);
   padding: 0 11px;
   outline: 0;
@@ -353,8 +353,8 @@ h2 {
 
 .chord-button.is-active {
   border-color: var(--brand);
-  background: #f4dfb9;
-  box-shadow: inset 0 0 0 1px var(--brand), 0 8px 18px rgba(184, 122, 36, 0.2);
+  background: #f2d6bd;
+  box-shadow: inset 0 0 0 1px var(--brand), 0 8px 18px rgba(199, 111, 43, 0.2);
 }
 
 .no-results {
@@ -382,8 +382,8 @@ h2 {
   border-radius: 8px;
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.18), transparent 24%, rgba(255, 255, 255, 0.12) 68%, transparent),
-    linear-gradient(135deg, #b5794c 0%, #815039 52%, #5b3526 100%);
-  box-shadow: inset 0 0 0 1px rgba(255, 250, 240, 0.2), inset 0 -20px 34px rgba(35, 20, 12, 0.26);
+    linear-gradient(135deg, #a56a43 0%, #74452f 52%, #533424 100%);
+  box-shadow: inset 0 0 0 1px rgba(255, 249, 237, 0.2), inset 0 -20px 34px rgba(35, 20, 12, 0.26);
   overflow: hidden;
 }
 
@@ -394,7 +394,7 @@ h2 {
   aspect-ratio: 1;
   transform: translateY(-50%);
   border-radius: 50%;
-  background: radial-gradient(circle, #16100f 0 54%, #45251a 55% 60%, #d49b66 61% 65%, rgba(255, 250, 240, 0.22) 66% 67%, transparent 68%);
+  background: radial-gradient(circle, #17100e 0 54%, #4f2d1e 55% 60%, #c76f2b 61% 65%, rgba(255, 249, 237, 0.22) 66% 67%, transparent 68%);
   opacity: 0.92;
 }
 
@@ -590,7 +590,7 @@ h2 {
   min-width: 0;
   border: 1px solid rgba(31, 23, 23, 0.1);
   border-radius: 8px;
-  background: rgba(255, 250, 240, 0.8);
+  background: rgba(255, 249, 237, 0.82);
   box-shadow: 0 16px 36px rgba(31, 23, 23, 0.1);
   padding: 10px 12px;
   display: grid;
@@ -638,7 +638,7 @@ h2 {
   flex: 0 0 auto;
   border-radius: 999px;
   background: var(--focus);
-  box-shadow: 0 0 0 2px rgba(212, 154, 54, 0.2);
+  box-shadow: 0 0 0 2px rgba(199, 111, 43, 0.2);
 }
 
 .unsaved-indicator[hidden] {
@@ -700,7 +700,7 @@ h2 {
 .song-controls input,
 .song-controls select {
   border: 1px solid rgba(31, 23, 23, 0.12);
-  background: rgba(255, 250, 240, 0.92);
+  background: rgba(255, 249, 237, 0.92);
   color: var(--ink);
   padding: 0 8px;
 }
@@ -719,7 +719,7 @@ h2 {
 
 .section-controls textarea::placeholder,
 .song-controls input::placeholder {
-  color: #8a7c78;
+  color: #8c7d6f;
 }
 
 .sequence-actions .is-primary {
@@ -733,16 +733,16 @@ h2 {
 }
 
 .sequence-actions .has-unsaved-changes {
-  box-shadow: 0 0 0 2px rgba(212, 154, 54, 0.24);
+  box-shadow: 0 0 0 2px rgba(199, 111, 43, 0.24);
 }
 
 .section-controls .section-delete-button:not(:disabled) {
-  background: rgba(166, 75, 53, 0.14);
+  background: rgba(168, 91, 56, 0.14);
   color: var(--accent);
 }
 
 .song-controls .song-delete-button:not(:disabled) {
-  background: rgba(166, 75, 53, 0.14);
+  background: rgba(168, 91, 56, 0.14);
   color: var(--accent);
 }
 
@@ -751,7 +751,7 @@ h2 {
 .song-controls button:disabled,
 .sequence-actions button:disabled {
   background: var(--field);
-  color: #8a7c78;
+  color: #8c7d6f;
 }
 
 .sequence-drawer-toggle {
@@ -764,7 +764,7 @@ h2 {
   gap: 6px;
   border: 1px solid rgba(31, 23, 23, 0.1);
   border-radius: 8px;
-  background: rgba(255, 250, 240, 0.74);
+  background: rgba(255, 249, 237, 0.76);
   color: var(--muted);
   padding: 0 9px;
   cursor: pointer;
@@ -840,7 +840,7 @@ h2 {
   min-height: 18px;
   border: 0;
   border-radius: 6px;
-  background: rgba(245, 231, 210, 0.9);
+  background: rgba(243, 229, 208, 0.92);
   color: var(--muted);
   padding: 0 7px;
   overflow: hidden;
@@ -866,8 +866,8 @@ h2 {
 .section-placement-count {
   flex: 0 0 auto;
   border-radius: 999px;
-  background: rgba(212, 154, 54, 0.18);
-  color: #7c5720;
+  background: rgba(199, 111, 43, 0.16);
+  color: #7f431f;
   padding: 1px 5px;
   font-size: 0.58rem;
   line-height: 1.2;
@@ -878,7 +878,7 @@ h2 {
 }
 
 .sequence-section-title.is-complete .section-placement-count {
-  background: rgba(65, 109, 100, 0.16);
+  background: rgba(82, 115, 109, 0.16);
   color: var(--teal);
 }
 
@@ -890,7 +890,7 @@ h2 {
 .sequence-lyrics {
   max-width: 100%;
   width: 100%;
-  border-left: 3px solid rgba(184, 122, 36, 0.38);
+  border-left: 3px solid rgba(199, 111, 43, 0.36);
   color: var(--ink);
   padding: 1px 0 2px 7px;
   overflow-x: auto;
@@ -907,7 +907,7 @@ h2 {
 }
 
 .lyrics-line.is-lyric-drop-target {
-  background: rgba(212, 154, 54, 0.18);
+  background: rgba(199, 111, 43, 0.16);
 }
 
 .lyrics-line.is-lyric-drop-target::after {
@@ -932,7 +932,7 @@ h2 {
   display: inline;
   border: 0;
   border-radius: 4px;
-  background: rgba(184, 122, 36, 0.14);
+  background: rgba(199, 111, 43, 0.14);
   color: var(--brand);
   margin: 0;
   padding: 0;
@@ -973,7 +973,7 @@ h2 {
   min-height: 36px;
   min-width: 74px;
   border-radius: 8px;
-  background: rgba(245, 231, 210, 0.88);
+  background: rgba(243, 229, 208, 0.9);
   color: var(--muted);
   display: grid;
   place-items: center;
@@ -1018,11 +1018,11 @@ h2 {
 }
 
 .sequence-chip.is-lyric-placed {
-  border-color: rgba(65, 109, 100, 0.3);
+  border-color: rgba(82, 115, 109, 0.3);
 }
 
 .sequence-chip.is-lyric-unplaced {
-  border-color: rgba(212, 154, 54, 0.38);
+  border-color: rgba(199, 111, 43, 0.34);
 }
 
 .sequence-select,
@@ -1060,12 +1060,12 @@ h2 {
   height: 5px;
   border-radius: 50%;
   background: var(--gold);
-  box-shadow: 0 0 0 1.5px rgba(212, 154, 54, 0.18);
+  box-shadow: 0 0 0 1.5px rgba(199, 111, 43, 0.18);
 }
 
 .sequence-chip.is-lyric-placed .sequence-placement-dot {
   background: var(--teal);
-  box-shadow: 0 0 0 1.5px rgba(65, 109, 100, 0.16);
+  box-shadow: 0 0 0 1.5px rgba(82, 115, 109, 0.16);
 }
 
 .sequence-drag {
@@ -1104,13 +1104,13 @@ h2 {
 
 .sequence-delete:hover,
 .sequence-delete:focus-visible {
-  background: rgba(166, 75, 53, 0.14);
+  background: rgba(168, 91, 56, 0.14);
   color: var(--accent);
 }
 
 .sequence-chip.is-active {
   border-color: var(--brand);
-  background: #f4dfb9;
+  background: #f2d6bd;
   box-shadow: inset 0 0 0 1px var(--brand);
 }
 
@@ -1143,7 +1143,7 @@ h2 {
   justify-content: center;
   border: 1px solid rgba(31, 23, 23, 0.12);
   border-radius: 999px;
-  background: rgba(245, 231, 210, 0.92);
+  background: rgba(243, 229, 208, 0.92);
   color: var(--muted);
   padding: 0 10px;
   font-size: 0.78rem;
@@ -1163,7 +1163,7 @@ h2 {
 }
 
 .switch-control:has(input:checked) {
-  border-color: rgba(184, 122, 36, 0.42);
+  border-color: rgba(199, 111, 43, 0.42);
   background: var(--brand-dark);
   color: #fff;
 }
@@ -1233,7 +1233,7 @@ h2 {
 
 .chord-nav-buttons button:disabled {
   background: var(--field);
-  color: #8a7c78;
+  color: #8c7d6f;
 }
 
 button:focus-visible,
@@ -1247,7 +1247,7 @@ textarea:focus-visible,
 
 .search-field input:focus {
   border-color: var(--brand);
-  box-shadow: 0 0 0 3px rgba(184, 122, 36, 0.18);
+  box-shadow: 0 0 0 3px rgba(199, 111, 43, 0.18);
 }
 
 button:active {

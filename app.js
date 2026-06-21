@@ -21,6 +21,8 @@ const POINTER_STRUM_MIN_VELOCITY = 0.22;
 const POINTER_STRUM_MAX_VELOCITY = 1;
 const POINTER_STRUM_SLOW_SPEED = 0.14;
 const POINTER_STRUM_FAST_SPEED = 1.35;
+const POINTER_CROSSING_MIN_GAP = 0.016;
+const POINTER_STRING_RETRIGGER_MS = 8;
 const STRUM_DUCK_LEVEL = 0.004;
 const STRUM_DUCK_TIME = 0.024;
 const STRUM_RELEASE_AFTER = 0.18;
@@ -40,8 +42,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v148";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=148";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v151";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=151";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -327,6 +329,7 @@ const state = {
   pointerStrumContext: null,
   pointerHasStrummed: false,
   pointerDirection: null,
+  pointerStringTimes: [],
   lastString: null,
   lastY: 0,
   lastTime: 0,
@@ -3531,6 +3534,7 @@ function handlePointerDown(event) {
   state.pointerStrumContext = strum;
   state.pointerHasStrummed = false;
   state.pointerDirection = null;
+  state.pointerStringTimes = Array(STRINGS.length).fill(-Infinity);
   state.lastString = stringIndexFromPointer(event);
   state.lastY = pointerStrumAxisPosition(event);
   state.lastTime = performance.now();
@@ -3542,28 +3546,29 @@ function handlePointerMove(event) {
   }
 
   preventDefaultIfCancelable(event);
-  const nextString = stringIndexFromPointer(event);
-  if (nextString === state.lastString) {
-    return;
-  }
-
   const now = performance.now();
   const axisPosition = pointerStrumAxisPosition(event);
   const distance = Math.abs(axisPosition - state.lastY);
-  const elapsed = Math.max(16, now - state.lastTime);
-  const velocity = pointerStrumVelocity(distance, elapsed);
+
+  if (!distance) {
+    return;
+  }
+
+  const crossedStrings = crossedPointerStringHits(state.lastY, axisPosition, state.lastTime, now);
   const isFirstStrum = !state.pointerHasStrummed;
-  const direction = nextString > state.lastString ? 1 : -1;
-  if (isFirstStrum && state.pointerStrumContext) {
+  const direction = axisPosition > state.lastY ? 1 : -1;
+
+  if (crossedStrings.length && isFirstStrum && state.pointerStrumContext) {
     duckActiveStrum(false, state.pointerStrumContext.sampledNotes, state.pointerStrumContext.transientSounds);
   }
 
-  playCrossedStrings(state.lastString, nextString, velocity, state.pointerStrumId ?? nextStrumId, {
-    includeFrom: isFirstStrum,
-  });
-  state.pointerHasStrummed = true;
+  if (crossedStrings.length) {
+    playPointerStringHits(crossedStrings, state.pointerStrumId ?? nextStrumId);
+    state.pointerHasStrummed = true;
+  }
+
   state.pointerDirection = direction;
-  state.lastString = nextString;
+  state.lastString = stringIndexFromPointer(event);
   state.lastY = axisPosition;
   state.lastTime = now;
 }
@@ -3581,12 +3586,21 @@ function handlePointerEnd(event) {
     if (state.pointerStrumContext) {
       duckActiveStrum(false, state.pointerStrumContext.sampledNotes, state.pointerStrumContext.transientSounds);
     }
-    playCrossedStrings(state.lastString, state.lastString, 0.58, state.pointerStrumContext?.id ?? nextStrumId);
+    playPointerStringHits(
+      [{
+        stringIndex: state.lastString,
+        direction: 0,
+        crossingTime: performance.now(),
+        velocity: 0.58,
+      }],
+      state.pointerStrumContext?.id ?? nextStrumId,
+    );
   }
 
   state.pointerStrumContext = null;
   state.pointerHasStrummed = false;
   state.pointerDirection = null;
+  state.pointerStringTimes = [];
   state.lastString = null;
   if (strumSurface.hasPointerCapture(event.pointerId)) {
     strumSurface.releasePointerCapture(event.pointerId);
@@ -3598,16 +3612,23 @@ function handlePointerEnd(event) {
 }
 
 function stringIndexFromPointer(event) {
-  const rect = strumSurface.getBoundingClientRect();
-  const isHorizontalStringLayout = state.performanceMode;
-  const stringSize = (isHorizontalStringLayout ? rect.height : rect.width) / STRINGS.length;
-  const pointerOffset = isHorizontalStringLayout ? event.clientY - rect.top : event.clientX - rect.left;
+  const { length, offset } = pointerStrumAxisMetrics(event);
+  const stringSize = length / STRINGS.length;
+  const pointerOffset = clamp(offset, 0, length);
   const rawIndex = Math.floor(pointerOffset / stringSize);
   return clamp(rawIndex, 0, STRINGS.length - 1);
 }
 
 function pointerStrumAxisPosition(event) {
-  return state.performanceMode ? event.clientY : event.clientX;
+  return pointerStrumAxisMetrics(event).offset;
+}
+
+function pointerStrumAxisMetrics(event) {
+  const rect = strumSurface.getBoundingClientRect();
+  const isHorizontalStringLayout = state.performanceMode;
+  const length = isHorizontalStringLayout ? rect.height : rect.width;
+  const offset = isHorizontalStringLayout ? event.clientY - rect.top : event.clientX - rect.left;
+  return { length, offset };
 }
 
 function pointerStrumVelocity(distance, elapsed) {
@@ -3625,50 +3646,85 @@ function pointerStrumVelocity(distance, elapsed) {
   );
 }
 
-function playCrossedStrings(
-  fromIndex,
-  toIndex,
-  velocity,
-  strumId = nextStrumId,
-  { includeFrom = false, waitForAudio = true, chord = currentChordSnapshot() } = {},
-) {
-  if (!ensureAudio() || !chord) {
+function crossedPointerStringHits(fromOffset, toOffset, fromTime, toTime) {
+  const movement = toOffset - fromOffset;
+
+  if (!movement) {
+    return [];
+  }
+
+  const direction = movement > 0 ? 1 : -1;
+  const length = state.performanceMode
+    ? strumSurface.getBoundingClientRect().height
+    : strumSurface.getBoundingClientRect().width;
+  const stringSize = length / STRINGS.length;
+  const elapsed = Math.max(16, toTime - fromTime);
+  const velocity = pointerStrumVelocity(Math.abs(movement), elapsed);
+  const crossedStrings = [];
+
+  STRINGS.forEach((_, stringIndex) => {
+    const center = stringSize * (stringIndex + 0.5);
+    const wasCrossed = direction > 0
+      ? fromOffset < center && toOffset >= center
+      : fromOffset > center && toOffset <= center;
+
+    if (!wasCrossed) {
+      return;
+    }
+
+    const crossingProgress = (center - fromOffset) / movement;
+    const crossingTime = fromTime + crossingProgress * (toTime - fromTime);
+    const lastStringTime = state.pointerStringTimes[stringIndex] ?? -Infinity;
+
+    if (crossingTime - lastStringTime < POINTER_STRING_RETRIGGER_MS) {
+      return;
+    }
+
+    state.pointerStringTimes[stringIndex] = crossingTime;
+    crossedStrings.push({
+      stringIndex,
+      direction,
+      crossingTime,
+      velocity,
+    });
+  });
+
+  return crossedStrings.sort((first, second) =>
+    direction > 0
+      ? first.stringIndex - second.stringIndex
+      : second.stringIndex - first.stringIndex
+  );
+}
+
+function playPointerStringHits(hits, strumId = nextStrumId, { waitForAudio = true, chord = currentChordSnapshot() } = {}) {
+  if (!hits.length || !ensureAudio() || !chord) {
     return;
   }
 
   if (waitForAudio && audioContext.state !== "running") {
-    playAfterAudioResume(() =>
-      playCrossedStrings(fromIndex, toIndex, velocity, strumId, {
-        includeFrom,
-        waitForAudio: false,
-        chord,
-      })
-    );
+    playAfterAudioResume(() => playPointerStringHits(hits, strumId, { waitForAudio: false, chord }));
     return;
   }
 
   withChordSnapshot(chord, () => {
-    if (fromIndex === toIndex) {
-      playString(toIndex, humanizedVelocity(velocity, toIndex, 0), audioContext.currentTime, 0, strumId);
-      return;
-    }
-
-    const direction = toIndex > fromIndex ? 1 : -1;
-    const crossedStrings = [];
-    for (let index = includeFrom ? fromIndex : fromIndex + direction; direction > 0 ? index <= toIndex : index >= toIndex; index += direction) {
-      crossedStrings.push(index);
-    }
-
+    const now = audioContext.currentTime;
     let delay = 0;
-    crossedStrings.forEach((stringIndex, orderIndex) => {
+    let previousCrossingTime = hits[0].crossingTime;
+
+    hits.forEach((hit, orderIndex) => {
+      if (orderIndex > 0) {
+        const naturalGap = Math.max(0, (hit.crossingTime - previousCrossingTime) / 1000);
+        delay += Math.max(naturalGap, POINTER_CROSSING_MIN_GAP);
+      }
+
       playString(
-        stringIndex,
-        humanizedVelocity(velocity, stringIndex, direction),
-        audioContext.currentTime + delay,
-        direction,
+        hit.stringIndex,
+        humanizedVelocity(hit.velocity, hit.stringIndex, hit.direction),
+        now + delay,
+        hit.direction,
         strumId,
       );
-      delay += humanizedStrumGap(orderIndex, crossedStrings.length, direction, false, stringIndex, velocity);
+      previousCrossingTime = hit.crossingTime;
     });
   });
 }
