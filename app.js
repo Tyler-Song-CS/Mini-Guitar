@@ -46,8 +46,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v157";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=157";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v158";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=158";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -352,7 +352,6 @@ let songNameInput;
 let songBuilderSongName;
 let newSongButton;
 let saveSongButton;
-let loadSongButton;
 let deleteSongButton;
 let exportSongButton;
 let importSongButton;
@@ -411,7 +410,6 @@ function init() {
   songBuilderSongName = document.querySelector("#songBuilderSongName");
   newSongButton = document.querySelector("#newSongButton");
   saveSongButton = document.querySelector("#saveSongButton");
-  loadSongButton = document.querySelector("#loadSongButton");
   deleteSongButton = document.querySelector("#deleteSongButton");
   exportSongButton = document.querySelector("#exportSongButton");
   importSongButton = document.querySelector("#importSongButton");
@@ -546,7 +544,6 @@ function bindControls() {
   songNameInput.addEventListener("input", updateSongActionState);
   newSongButton.addEventListener("click", createNewSong);
   saveSongButton.addEventListener("click", saveCurrentSong);
-  loadSongButton.addEventListener("click", loadSelectedSong);
   deleteSongButton.addEventListener("click", deleteSelectedSong);
   exportSongButton.addEventListener("click", exportCurrentSong);
   importSongButton.addEventListener("click", openSongImportPicker);
@@ -1342,21 +1339,6 @@ function saveCurrentSong() {
   renderSongSelect();
 }
 
-function loadSelectedSong() {
-  const song = selectedSavedSong();
-
-  if (!song) {
-    return;
-  }
-
-  applySavedSequence(normalizeSavedSequence(song));
-  state.activeSongId = song.id;
-  saveSequence();
-  updateChordDisplay();
-  renderChordGrid();
-  renderSequence({ scrollSelectedChord: state.sequenceIndex !== null });
-}
-
 function deleteSelectedSong() {
   const song = selectedSavedSong();
 
@@ -1494,9 +1476,47 @@ function selectedSavedSong() {
 }
 
 function handleSongSelectionChange() {
-  const song = selectedSavedSong();
-  songNameInput.value = song?.name ?? "";
-  updateSongActionState();
+  const requestedSongId = songSelect.value;
+  const previousSongId = state.activeSongId ?? "";
+
+  if (!requestedSongId) {
+    songSelect.value = previousSongId;
+    updateSongActionState();
+    return;
+  }
+
+  const song = state.savedSongs.find((savedSong) => savedSong.id === requestedSongId) ?? null;
+
+  if (!song) {
+    songSelect.value = previousSongId;
+    updateSongActionState();
+    return;
+  }
+
+  if (song.id === state.activeSongId) {
+    songNameInput.value = song.name;
+    updateSongActionState();
+    return;
+  }
+
+  if (songHasUnsavedChanges() && !window.confirm("Discard unsaved changes and load this song?")) {
+    songSelect.value = previousSongId;
+    updateSongActionState();
+    return;
+  }
+
+  loadSong(song);
+}
+
+function loadSong(song) {
+  applySavedSequence(normalizeSavedSequence(song));
+  state.activeSongId = song.id;
+  songNameInput.value = song.name;
+  saveSequence();
+  updateChordDisplay();
+  renderChordGrid();
+  renderSequence({ scrollSelectedChord: state.sequenceIndex !== null });
+  renderSongSelect();
 }
 
 function createSavedSongSnapshot(name, id = createSongId()) {
@@ -3231,7 +3251,6 @@ function updateSongActionState() {
   const hasUnsavedChanges = songHasUnsavedChanges();
   saveSongButton.disabled = false;
   saveSongButton.classList.toggle("has-unsaved-changes", hasUnsavedChanges);
-  loadSongButton.disabled = !hasSelectedSong;
   deleteSongButton.disabled = !hasSelectedSong;
 
   const activeSong = state.savedSongs.find((song) => song.id === state.activeSongId) ?? null;
