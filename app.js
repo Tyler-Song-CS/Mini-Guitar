@@ -40,8 +40,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v144";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=144";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v148";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=148";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -808,19 +808,26 @@ function handleKeyboardStrum(event) {
   }
 }
 
-function playKeyboardString(stringIndex) {
-  if (!ensureAudio()) {
+function playKeyboardString(stringIndex, { waitForAudio = true, chord = currentChordSnapshot() } = {}) {
+  if (!ensureAudio() || !chord) {
     return;
   }
 
-  const strumId = ++nextStrumId;
-  playString(
-    stringIndex,
-    humanizedVelocity(STRUM_PROFILES.pick.baseVelocity, stringIndex, 0),
-    audioContext.currentTime,
-    0,
-    strumId,
-  );
+  if (waitForAudio && audioContext.state !== "running") {
+    playAfterAudioResume(() => playKeyboardString(stringIndex, { waitForAudio: false, chord }));
+    return;
+  }
+
+  withChordSnapshot(chord, () => {
+    const strumId = ++nextStrumId;
+    playString(
+      stringIndex,
+      humanizedVelocity(STRUM_PROFILES.pick.baseVelocity, stringIndex, 0),
+      audioContext.currentTime,
+      0,
+      strumId,
+    );
+  });
 }
 
 function isKeyboardEditingTarget(target) {
@@ -3457,6 +3464,33 @@ function resumeAudioContext() {
   return audioResumePromise;
 }
 
+function playAfterAudioResume(playback) {
+  resumeAudioContext().then(() => {
+    if (audioContext?.state === "running") {
+      playback();
+    }
+  });
+}
+
+function currentChordSnapshot() {
+  if (!state.chord || !Array.isArray(state.chord.voicing)) {
+    return null;
+  }
+
+  return { ...state.chord, voicing: [...state.chord.voicing] };
+}
+
+function withChordSnapshot(chord, playback) {
+  const previousChord = state.chord;
+  state.chord = chord;
+
+  try {
+    playback();
+  } finally {
+    state.chord = previousChord;
+  }
+}
+
 function resetAudioEngine() {
   audioContext?.removeEventListener?.("statechange", handleAudioStateChange);
   audioContext = null;
@@ -3520,14 +3554,12 @@ function handlePointerMove(event) {
   const velocity = pointerStrumVelocity(distance, elapsed);
   const isFirstStrum = !state.pointerHasStrummed;
   const direction = nextString > state.lastString ? 1 : -1;
-  const isDirectionChange = state.pointerDirection !== null && direction !== state.pointerDirection;
-
   if (isFirstStrum && state.pointerStrumContext) {
     duckActiveStrum(false, state.pointerStrumContext.sampledNotes, state.pointerStrumContext.transientSounds);
   }
 
   playCrossedStrings(state.lastString, nextString, velocity, state.pointerStrumId ?? nextStrumId, {
-    includeFrom: isFirstStrum || isDirectionChange,
+    includeFrom: isFirstStrum,
   });
   state.pointerHasStrummed = true;
   state.pointerDirection = direction;
@@ -3593,53 +3625,79 @@ function pointerStrumVelocity(distance, elapsed) {
   );
 }
 
-function playCrossedStrings(fromIndex, toIndex, velocity, strumId = nextStrumId, { includeFrom = false } = {}) {
-  if (!ensureAudio()) {
+function playCrossedStrings(
+  fromIndex,
+  toIndex,
+  velocity,
+  strumId = nextStrumId,
+  { includeFrom = false, waitForAudio = true, chord = currentChordSnapshot() } = {},
+) {
+  if (!ensureAudio() || !chord) {
     return;
   }
 
-  if (fromIndex === toIndex) {
-    playString(toIndex, humanizedVelocity(velocity, toIndex, 0), audioContext.currentTime, 0, strumId);
-    return;
-  }
-
-  const direction = toIndex > fromIndex ? 1 : -1;
-  const crossedStrings = [];
-  for (let index = includeFrom ? fromIndex : fromIndex + direction; direction > 0 ? index <= toIndex : index >= toIndex; index += direction) {
-    crossedStrings.push(index);
-  }
-
-  let delay = 0;
-  crossedStrings.forEach((stringIndex, orderIndex) => {
-    playString(
-      stringIndex,
-      humanizedVelocity(velocity, stringIndex, direction),
-      audioContext.currentTime + delay,
-      direction,
-      strumId,
+  if (waitForAudio && audioContext.state !== "running") {
+    playAfterAudioResume(() =>
+      playCrossedStrings(fromIndex, toIndex, velocity, strumId, {
+        includeFrom,
+        waitForAudio: false,
+        chord,
+      })
     );
-    delay += humanizedStrumGap(orderIndex, crossedStrings.length, direction, false, stringIndex, velocity);
+    return;
+  }
+
+  withChordSnapshot(chord, () => {
+    if (fromIndex === toIndex) {
+      playString(toIndex, humanizedVelocity(velocity, toIndex, 0), audioContext.currentTime, 0, strumId);
+      return;
+    }
+
+    const direction = toIndex > fromIndex ? 1 : -1;
+    const crossedStrings = [];
+    for (let index = includeFrom ? fromIndex : fromIndex + direction; direction > 0 ? index <= toIndex : index >= toIndex; index += direction) {
+      crossedStrings.push(index);
+    }
+
+    let delay = 0;
+    crossedStrings.forEach((stringIndex, orderIndex) => {
+      playString(
+        stringIndex,
+        humanizedVelocity(velocity, stringIndex, direction),
+        audioContext.currentTime + delay,
+        direction,
+        strumId,
+      );
+      delay += humanizedStrumGap(orderIndex, crossedStrings.length, direction, false, stringIndex, velocity);
+    });
   });
 }
 
-function playFullStrum(direction) {
-  if (!ensureAudio()) {
+function playFullStrum(direction, { waitForAudio = true, chord = currentChordSnapshot() } = {}) {
+  if (!ensureAudio() || !chord) {
     return;
   }
 
-  const now = audioContext.currentTime;
-  const isFastStrum = now - lastFullStrumTime < FAST_STRUM_INTERVAL;
-  const strumId = ++nextStrumId;
-  const previousSampledNotes = getActiveSampledNotes();
-  const previousTransientSounds = [...activeTransientSounds];
-  lastFullStrumTime = now;
+  if (waitForAudio && audioContext.state !== "running") {
+    playAfterAudioResume(() => playFullStrum(direction, { waitForAudio: false, chord }));
+    return;
+  }
 
-  const hits = buildStrumHits(direction, isFastStrum, now);
-  hits.forEach(({ stringIndex, velocity, when }) => {
-    playString(stringIndex, velocity, when, direction, strumId);
+  withChordSnapshot(chord, () => {
+    const now = audioContext.currentTime;
+    const isFastStrum = now - lastFullStrumTime < FAST_STRUM_INTERVAL;
+    const strumId = ++nextStrumId;
+    const previousSampledNotes = getActiveSampledNotes();
+    const previousTransientSounds = [...activeTransientSounds];
+    lastFullStrumTime = now;
+
+    const hits = buildStrumHits(direction, isFastStrum, now);
+    hits.forEach(({ stringIndex, velocity, when }) => {
+      playString(stringIndex, velocity, when, direction, strumId);
+    });
+    duckActiveStrum(isFastStrum, previousSampledNotes, previousTransientSounds);
+    autoAdvanceSequenceAfterStrum();
   });
-  duckActiveStrum(isFastStrum, previousSampledNotes, previousTransientSounds);
-  autoAdvanceSequenceAfterStrum();
 }
 
 function buildStrumHits(direction, isFastStrum, startTime) {
