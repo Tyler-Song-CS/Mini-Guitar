@@ -24,8 +24,9 @@ const POINTER_STRUM_FAST_SPEED = 1.35;
 const POINTER_CROSSING_MIN_GAP = 0.016;
 const POINTER_INITIAL_STRUM_DISTANCE = 6;
 const POINTER_STRING_RETRIGGER_MS = 8;
-const AUDIO_START_SAMPLE_TIMEOUT = 4200;
-const AUDIO_START_SAMPLE_POLL = 55;
+const AUDIO_RESUME_TIMEOUT = 1400;
+const AUDIO_SELECTION_SAMPLE_TIMEOUT = 1500;
+const AUDIO_SELECTION_SAMPLE_POLL = 55;
 const STRUM_DUCK_LEVEL = 0.004;
 const STRUM_DUCK_TIME = 0.024;
 const STRUM_RELEASE_AFTER = 0.18;
@@ -45,8 +46,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v154";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=154";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v157";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=157";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -315,7 +316,7 @@ const CHORD_LIBRARY = buildChordLibrary();
 
 const state = {
   bank: "open",
-  chord: CHORD_BANKS.open[0],
+  chord: null,
   searchQuery: "",
   sections: [createSequenceSection(DEFAULT_SECTION_NAME)],
   activeSectionId: null,
@@ -378,10 +379,6 @@ let sequenceNextButton;
 let selectedChord;
 let selectedVoicing;
 let capoValue;
-let audioStartOverlay;
-let audioStartButton;
-let audioStartTitle;
-let audioStartStatus;
 let acousticPlayer;
 let acousticPreset;
 let acousticPresetStarted = false;
@@ -392,9 +389,8 @@ let stringFeedbackFrames = [];
 let stringFeedbackTimers = [];
 let lastFullStrumTime = -Infinity;
 let lastStrumButtonPointerTime = -Infinity;
-let lastAudioStartPointerTime = -Infinity;
 let nextStrumId = 0;
-let audioStartPromise = null;
+let audioSelectionPromise = null;
 let noiseBufferPools = {};
 let noiseBufferPoolIndexes = {};
 let draggedSequenceIndex = null;
@@ -442,10 +438,6 @@ function init() {
   selectedChord = document.querySelector("#selectedChord");
   selectedVoicing = document.querySelector("#selectedVoicing");
   capoValue = document.querySelector("#capoValue");
-  audioStartOverlay = document.querySelector("#audioStartOverlay");
-  audioStartButton = document.querySelector("#audioStartButton");
-  audioStartTitle = document.querySelector("#audioStartTitle");
-  audioStartStatus = document.querySelector("#audioStartStatus");
 
   const initialSearch = new URLSearchParams(window.location.search).get("search") ?? "";
   state.searchQuery = initialSearch.trim().toLowerCase();
@@ -461,7 +453,6 @@ function init() {
   updateChordDisplay();
   bindControls();
   scheduleAudioWarmup();
-  updateAudioStartGate();
   registerServiceWorker();
 }
 
@@ -488,7 +479,7 @@ function renderChordGrid() {
   }
 
   chords.forEach((chord) => {
-    const isSelected = chord.name === state.chord.name;
+    const isSelected = chord.name === state.chord?.name;
     const button = document.createElement("button");
     button.className = "chord-button";
     button.type = "button";
@@ -525,14 +516,7 @@ function bindControls() {
 
   document.querySelectorAll(".bank-tab").forEach((button) => {
     button.addEventListener("click", () => {
-      const shouldSelectBankDefault = !state.searchQuery;
-
       state.bank = button.dataset.bank;
-
-      if (shouldSelectBankDefault) {
-        state.chord = CHORD_BANKS[state.bank][0];
-        state.sequenceIndex = null;
-      }
 
       document.querySelectorAll(".bank-tab").forEach((tab) => {
         const isActive = tab === button;
@@ -541,11 +525,7 @@ function bindControls() {
       });
 
       renderChordGrid();
-
-      if (shouldSelectBankDefault) {
-        updateChordDisplay();
-        renderSequence();
-      }
+      updateChordDisplay();
     });
   });
 
@@ -601,7 +581,6 @@ function bindControls() {
 
   bindStrumButton("#downStrum", 1);
   bindStrumButton("#upStrum", -1);
-  bindAudioStartGate();
   window.addEventListener("keydown", handleKeyboardStrum);
 
   const guitarBody = document.querySelector(".guitar-body");
@@ -624,23 +603,6 @@ function armAudioOnNextGesture() {
   window.addEventListener("pointerdown", armAudio, { capture: true, once: true });
   window.addEventListener("touchstart", armAudio, { capture: true, once: true, passive: true });
   window.addEventListener("keydown", armAudioFromKeyboard, { capture: true });
-}
-
-function bindAudioStartGate() {
-  audioStartButton.addEventListener("pointerdown", (event) => {
-    preventDefaultIfCancelable(event);
-    lastAudioStartPointerTime = performance.now();
-    startAudioFromGate();
-  });
-
-  audioStartButton.addEventListener("click", (event) => {
-    if (performance.now() - lastAudioStartPointerTime < 500) {
-      preventDefaultIfCancelable(event);
-      return;
-    }
-
-    startAudioFromGate();
-  });
 }
 
 function armAudio() {
@@ -675,7 +637,6 @@ function handleAudioPageResume() {
   }
 
   armAudioOnNextGesture();
-  updateAudioStartGate({ resume: true });
 }
 
 function scheduleAudioWarmup() {
@@ -699,69 +660,15 @@ function isTouchAudioEnvironment() {
   return navigator.maxTouchPoints > 0;
 }
 
-function updateAudioStartGate({ resume = false } = {}) {
-  if (!isTouchAudioEnvironment() || !audioStartOverlay) {
+function prepareAudioAfterChordSelection() {
+  if (audioSelectionPromise) {
     return;
   }
 
-  if (audioStartPromise) {
-    audioStartOverlay.hidden = false;
-    return;
-  }
-
-  const shouldShow = !audioContext
-    || audioContext.state !== "running"
-    || !acousticPresetReady;
-
-  if (!shouldShow) {
-    hideAudioStartGate();
-    return;
-  }
-
-  showAudioStartGate(resume || audioContext?.state === "suspended");
-}
-
-function showAudioStartGate(isResume = false) {
-  audioStartOverlay.hidden = false;
-  audioStartTitle.textContent = isResume ? "Ready to Resume" : "Ready to Play";
-  audioStartStatus.textContent = isResume ? "Tap once to reconnect the guitar." : "Tap once to wake up the guitar.";
-  audioStartButton.textContent = isResume ? "Tap to Resume" : "Tap to Start";
-  audioStartButton.disabled = false;
-}
-
-function hideAudioStartGate() {
-  audioStartOverlay.hidden = true;
-  audioStartButton.disabled = false;
-}
-
-function setAudioStartStatus(message) {
-  audioStartStatus.textContent = message;
-}
-
-function startAudioFromGate() {
-  if (audioStartPromise) {
-    return;
-  }
-
-  audioStartButton.disabled = true;
-  setAudioStartStatus("Getting strings ready...");
-
-  audioStartPromise = preparePlayableAudio()
-    .then((isReady) => {
-      if (isReady) {
-        hideAudioStartGate();
-        return;
-      }
-
-      audioStartButton.disabled = false;
-      setAudioStartStatus("Audio is still locked. Tap again.");
-    })
-    .catch(() => {
-      audioStartButton.disabled = false;
-      setAudioStartStatus("Audio could not start. Tap again.");
-    })
+  audioSelectionPromise = preparePlayableAudio()
+    .catch(() => false)
     .finally(() => {
-      audioStartPromise = null;
+      audioSelectionPromise = null;
     });
 }
 
@@ -770,7 +677,7 @@ async function preparePlayableAudio() {
     return false;
   }
 
-  const didResume = await resumeAudioContext();
+  const didResume = await resumeAudioContext({ timeoutMs: AUDIO_RESUME_TIMEOUT });
 
   if (!didResume || audioContext?.state !== "running") {
     return false;
@@ -780,11 +687,11 @@ async function preparePlayableAudio() {
   prepareAcousticSamples();
   await waitForAcousticSamples();
   updateAudioReadyState();
-  return audioContext?.state === "running" && acousticPresetReady;
+  return audioContext?.state === "running";
 }
 
 function waitForAcousticSamples() {
-  const deadline = performance.now() + AUDIO_START_SAMPLE_TIMEOUT;
+  const deadline = performance.now() + AUDIO_SELECTION_SAMPLE_TIMEOUT;
 
   return new Promise((resolve) => {
     const checkSamples = () => {
@@ -798,7 +705,7 @@ function waitForAcousticSamples() {
         return;
       }
 
-      window.setTimeout(checkSamples, AUDIO_START_SAMPLE_POLL);
+      window.setTimeout(checkSamples, AUDIO_SELECTION_SAMPLE_POLL);
     };
 
     checkSamples();
@@ -874,11 +781,11 @@ function renderPerformanceStrip() {
 
   performanceChords.replaceChildren();
   const hasSequence = state.sequence.length > 0;
-  const chords = hasSequence ? state.sequence : [state.chord];
+  const chords = hasSequence ? state.sequence : state.chord ? [state.chord] : [];
 
   chords.forEach((chord, index) => {
     const button = document.createElement("button");
-    const isActive = hasSequence ? index === state.sequenceIndex : chord.name === state.chord.name;
+    const isActive = hasSequence ? index === state.sequenceIndex : chord.name === state.chord?.name;
     button.className = "performance-chip";
     button.type = "button";
     button.textContent = chord.name;
@@ -1001,13 +908,19 @@ function isKeyboardEditingElement(element) {
 }
 
 function updateChordDisplay() {
-  selectedChord.textContent = state.chord.name;
-  selectedVoicing.textContent = formatVoicing(state.chord.voicing);
-  addChordButton.textContent = `+ ${state.chord.name}`;
-  addChordButton.setAttribute("aria-label", `Add ${state.chord.name}`);
+  const hasChord = Boolean(state.chord);
+
+  selectedChord.textContent = state.chord?.name ?? "Choose";
+  selectedVoicing.textContent = state.chord ? formatVoicing(state.chord.voicing) : "Select chord";
+  addChordButton.textContent = state.chord ? `+ ${state.chord.name}` : "+ Chord";
+  addChordButton.setAttribute("aria-label", state.chord ? `Add ${state.chord.name}` : "Choose a chord to add");
+  addChordButton.disabled = !hasChord;
+
+  document.querySelector("#downStrum").disabled = !hasChord;
+  document.querySelector("#upStrum").disabled = !hasChord;
 
   document.querySelectorAll(".chord-button").forEach((button) => {
-    const isActive = button.dataset.chord === state.chord.name;
+    const isActive = button.dataset.chord === state.chord?.name;
     button.classList.toggle("is-active", isActive);
     button.setAttribute("aria-pressed", String(isActive));
   });
@@ -1026,6 +939,7 @@ function selectChord(chord, sequenceIndex = null, { scrollSelectedChord = sequen
   updateChordDisplay();
   renderChordGrid();
   renderSequence({ scrollSectionToTop, scrollSelectedChord });
+  prepareAudioAfterChordSelection();
 
   if (sequenceIndex !== null) {
     saveSequence();
@@ -1062,6 +976,10 @@ function autoAdvanceSequenceAfterStrum() {
 }
 
 function addSelectedChordToSequence() {
+  if (!state.chord) {
+    return;
+  }
+
   const chord = sequenceChordFromChord(state.chord, state.activeSectionId);
   const insertIndex = sequenceInsertIndexForSection(state.activeSectionId);
   state.sequence.splice(insertIndex, 0, chord);
@@ -1198,6 +1116,7 @@ function deleteActiveSection() {
 
   if (!state.sequence.length) {
     state.sequenceIndex = null;
+    state.chord = null;
   } else if (previousSelectedChord && previousSelectedChord.sectionId !== section.id) {
     state.sequenceIndex = state.sequence.indexOf(previousSelectedChord);
   } else {
@@ -1210,6 +1129,7 @@ function deleteActiveSection() {
     state.activeSectionId = state.chord.sectionId ?? state.activeSectionId;
   } else {
     state.sequenceIndex = null;
+    state.chord = null;
   }
 
   saveSequence();
@@ -1228,6 +1148,7 @@ function removeSequenceChord(index) {
 
   if (!state.sequence.length) {
     state.sequenceIndex = null;
+    state.chord = null;
   } else if (state.sequenceIndex === index) {
     state.sequenceIndex = Math.min(index, state.sequence.length - 1);
     state.chord = state.sequence[state.sequenceIndex];
@@ -1382,7 +1303,7 @@ function createNewSong() {
   state.activeSectionId = section.id;
   state.sequence = [];
   state.sequenceIndex = null;
-  state.chord = CHORD_BANKS.open[0];
+  state.chord = null;
   songNameInput.value = "";
   saveSequence();
   updateChordDisplay();
@@ -1655,6 +1576,7 @@ function restoreSavedSequence() {
     state.activeSectionId = state.sections[0].id;
     state.sequence = [];
     state.sequenceIndex = null;
+    state.chord = null;
     state.activeSongId = null;
   }
 }
@@ -1663,14 +1585,9 @@ function applySavedSequence(savedSequence) {
   state.sections = savedSequence.sections;
   state.activeSectionId = savedSequence.activeSectionId;
   state.sequence = savedSequence.sequence;
-  state.sequenceIndex = savedSequence.sequenceIndex;
+  state.sequenceIndex = null;
+  state.chord = null;
   ensureActiveSection();
-
-  if (!savedSequence.sequence.length) {
-    return;
-  }
-
-  state.chord = state.sequence[state.sequenceIndex];
 }
 
 function saveSongs() {
@@ -3582,7 +3499,6 @@ function handleAudioStateChange(event) {
   if (audioContext.state === "closed") {
     resetAudioEngine();
     armAudioOnNextGesture();
-    updateAudioStartGate({ resume: true });
     return;
   }
 
@@ -3590,11 +3506,7 @@ function handleAudioStateChange(event) {
 
   if (audioContext.state !== "running") {
     armAudioOnNextGesture();
-    updateAudioStartGate({ resume: true });
-    return;
   }
-
-  updateAudioStartGate();
 }
 
 function updateAudioReadyState() {
@@ -3618,7 +3530,7 @@ function shouldRecreateTouchAudioContext(resume) {
     && audioContext.state !== "running";
 }
 
-function resumeAudioContext() {
+function resumeAudioContext({ timeoutMs = 0 } = {}) {
   if (!audioContext || audioContext.state === "closed" || typeof audioContext.resume !== "function") {
     return Promise.resolve(audioContext?.state === "running");
   }
@@ -3628,9 +3540,17 @@ function resumeAudioContext() {
   }
 
   if (!audioResumePromise) {
-    audioResumePromise = audioContext.resume()
+    const resumePromise = audioContext.resume();
+    const guardedResume = timeoutMs > 0
+      ? Promise.race([
+          resumePromise,
+          wait(timeoutMs).then(() => false),
+        ])
+      : resumePromise;
+
+    audioResumePromise = guardedResume
       .catch(() => {})
-      .then(() => audioContext?.state === "running")
+      .then((result) => result === false ? false : audioContext?.state === "running")
       .finally(() => {
         audioResumePromise = null;
         updateAudioReadyState();
@@ -3638,6 +3558,12 @@ function resumeAudioContext() {
   }
 
   return audioResumePromise;
+}
+
+function wait(duration) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, duration);
+  });
 }
 
 function playAfterAudioResume(playback) {
