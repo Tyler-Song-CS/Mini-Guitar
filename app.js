@@ -24,6 +24,8 @@ const POINTER_STRUM_FAST_SPEED = 1.35;
 const POINTER_CROSSING_MIN_GAP = 0.016;
 const POINTER_INITIAL_STRUM_DISTANCE = 6;
 const POINTER_STRING_RETRIGGER_MS = 8;
+const AUDIO_START_SAMPLE_TIMEOUT = 4200;
+const AUDIO_START_SAMPLE_POLL = 55;
 const STRUM_DUCK_LEVEL = 0.004;
 const STRUM_DUCK_TIME = 0.024;
 const STRUM_RELEASE_AFTER = 0.18;
@@ -43,8 +45,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v153";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=153";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v154";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=154";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -376,6 +378,10 @@ let sequenceNextButton;
 let selectedChord;
 let selectedVoicing;
 let capoValue;
+let audioStartOverlay;
+let audioStartButton;
+let audioStartTitle;
+let audioStartStatus;
 let acousticPlayer;
 let acousticPreset;
 let acousticPresetStarted = false;
@@ -386,7 +392,9 @@ let stringFeedbackFrames = [];
 let stringFeedbackTimers = [];
 let lastFullStrumTime = -Infinity;
 let lastStrumButtonPointerTime = -Infinity;
+let lastAudioStartPointerTime = -Infinity;
 let nextStrumId = 0;
+let audioStartPromise = null;
 let noiseBufferPools = {};
 let noiseBufferPoolIndexes = {};
 let draggedSequenceIndex = null;
@@ -434,6 +442,10 @@ function init() {
   selectedChord = document.querySelector("#selectedChord");
   selectedVoicing = document.querySelector("#selectedVoicing");
   capoValue = document.querySelector("#capoValue");
+  audioStartOverlay = document.querySelector("#audioStartOverlay");
+  audioStartButton = document.querySelector("#audioStartButton");
+  audioStartTitle = document.querySelector("#audioStartTitle");
+  audioStartStatus = document.querySelector("#audioStartStatus");
 
   const initialSearch = new URLSearchParams(window.location.search).get("search") ?? "";
   state.searchQuery = initialSearch.trim().toLowerCase();
@@ -449,6 +461,7 @@ function init() {
   updateChordDisplay();
   bindControls();
   scheduleAudioWarmup();
+  updateAudioStartGate();
   registerServiceWorker();
 }
 
@@ -588,6 +601,7 @@ function bindControls() {
 
   bindStrumButton("#downStrum", 1);
   bindStrumButton("#upStrum", -1);
+  bindAudioStartGate();
   window.addEventListener("keydown", handleKeyboardStrum);
 
   const guitarBody = document.querySelector(".guitar-body");
@@ -610,6 +624,23 @@ function armAudioOnNextGesture() {
   window.addEventListener("pointerdown", armAudio, { capture: true, once: true });
   window.addEventListener("touchstart", armAudio, { capture: true, once: true, passive: true });
   window.addEventListener("keydown", armAudioFromKeyboard, { capture: true });
+}
+
+function bindAudioStartGate() {
+  audioStartButton.addEventListener("pointerdown", (event) => {
+    preventDefaultIfCancelable(event);
+    lastAudioStartPointerTime = performance.now();
+    startAudioFromGate();
+  });
+
+  audioStartButton.addEventListener("click", (event) => {
+    if (performance.now() - lastAudioStartPointerTime < 500) {
+      preventDefaultIfCancelable(event);
+      return;
+    }
+
+    startAudioFromGate();
+  });
 }
 
 function armAudio() {
@@ -644,6 +675,7 @@ function handleAudioPageResume() {
   }
 
   armAudioOnNextGesture();
+  updateAudioStartGate({ resume: true });
 }
 
 function scheduleAudioWarmup() {
@@ -665,6 +697,112 @@ function scheduleAudioWarmup() {
 
 function isTouchAudioEnvironment() {
   return navigator.maxTouchPoints > 0;
+}
+
+function updateAudioStartGate({ resume = false } = {}) {
+  if (!isTouchAudioEnvironment() || !audioStartOverlay) {
+    return;
+  }
+
+  if (audioStartPromise) {
+    audioStartOverlay.hidden = false;
+    return;
+  }
+
+  const shouldShow = !audioContext
+    || audioContext.state !== "running"
+    || !acousticPresetReady;
+
+  if (!shouldShow) {
+    hideAudioStartGate();
+    return;
+  }
+
+  showAudioStartGate(resume || audioContext?.state === "suspended");
+}
+
+function showAudioStartGate(isResume = false) {
+  audioStartOverlay.hidden = false;
+  audioStartTitle.textContent = isResume ? "Ready to Resume" : "Ready to Play";
+  audioStartStatus.textContent = isResume ? "Tap once to reconnect the guitar." : "Tap once to wake up the guitar.";
+  audioStartButton.textContent = isResume ? "Tap to Resume" : "Tap to Start";
+  audioStartButton.disabled = false;
+}
+
+function hideAudioStartGate() {
+  audioStartOverlay.hidden = true;
+  audioStartButton.disabled = false;
+}
+
+function setAudioStartStatus(message) {
+  audioStartStatus.textContent = message;
+}
+
+function startAudioFromGate() {
+  if (audioStartPromise) {
+    return;
+  }
+
+  audioStartButton.disabled = true;
+  setAudioStartStatus("Getting strings ready...");
+
+  audioStartPromise = preparePlayableAudio()
+    .then((isReady) => {
+      if (isReady) {
+        hideAudioStartGate();
+        return;
+      }
+
+      audioStartButton.disabled = false;
+      setAudioStartStatus("Audio is still locked. Tap again.");
+    })
+    .catch(() => {
+      audioStartButton.disabled = false;
+      setAudioStartStatus("Audio could not start. Tap again.");
+    })
+    .finally(() => {
+      audioStartPromise = null;
+    });
+}
+
+async function preparePlayableAudio() {
+  if (!ensureAudio()) {
+    return false;
+  }
+
+  const didResume = await resumeAudioContext();
+
+  if (!didResume || audioContext?.state !== "running") {
+    return false;
+  }
+
+  prepareNoiseBuffers();
+  prepareAcousticSamples();
+  await waitForAcousticSamples();
+  updateAudioReadyState();
+  return audioContext?.state === "running" && acousticPresetReady;
+}
+
+function waitForAcousticSamples() {
+  const deadline = performance.now() + AUDIO_START_SAMPLE_TIMEOUT;
+
+  return new Promise((resolve) => {
+    const checkSamples = () => {
+      if (prepareAcousticSamples()) {
+        resolve(true);
+        return;
+      }
+
+      if (performance.now() >= deadline) {
+        resolve(false);
+        return;
+      }
+
+      window.setTimeout(checkSamples, AUDIO_START_SAMPLE_POLL);
+    };
+
+    checkSamples();
+  });
 }
 
 function armAudioFromKeyboard(event) {
@@ -3444,6 +3582,7 @@ function handleAudioStateChange(event) {
   if (audioContext.state === "closed") {
     resetAudioEngine();
     armAudioOnNextGesture();
+    updateAudioStartGate({ resume: true });
     return;
   }
 
@@ -3451,7 +3590,11 @@ function handleAudioStateChange(event) {
 
   if (audioContext.state !== "running") {
     armAudioOnNextGesture();
+    updateAudioStartGate({ resume: true });
+    return;
   }
+
+  updateAudioStartGate();
 }
 
 function updateAudioReadyState() {
