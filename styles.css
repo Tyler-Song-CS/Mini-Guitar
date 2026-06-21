@@ -996,8 +996,7 @@ h2 {
   border-radius: 6px;
   background: var(--panel);
   color: var(--ink);
-  display: grid;
-  grid-template-columns: 24px max-content 24px;
+  display: flex;
   align-items: stretch;
   overflow: hidden;
   cursor: default;
@@ -1028,6 +1027,7 @@ h2 {
 .sequence-select,
 .sequence-drag,
 .sequence-delete {
+  flex: 0 0 24px;
   min-width: 0;
   border: 0;
   background: transparent;
@@ -1037,6 +1037,7 @@ h2 {
 }
 
 .sequence-select {
+  flex: 1 1 auto;
   display: grid;
   grid-template-columns: 5px max-content;
   column-gap: 4px;
@@ -1860,7 +1861,12 @@ button:active {
   .sequence-chip {
     min-width: 88px;
     min-height: 28px;
-    grid-template-columns: 23px max-content 23px;
+  }
+
+  .sequence-select,
+  .sequence-drag,
+  .sequence-delete {
+    flex-basis: 23px;
   }
 
   .sequence-select strong {
