@@ -46,8 +46,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v165";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=165";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v166";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=166";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -61,9 +61,6 @@ const KEYBOARD_EDITING_SELECTOR = [
   ".sequence-managers",
   ".sequence-actions",
   ".control-row",
-  ".mode-toggle",
-  ".performance-nav",
-  ".performance-chip",
 ].join(", ");
 const KEYBOARD_PLAY_SURFACE_SELECTOR = [
   "#strumSurface",
@@ -327,7 +324,6 @@ const state = {
   capo: 0,
   palmMute: false,
   autoAdvance: false,
-  performanceMode: false,
   pointerId: null,
   pointerStrumId: null,
   pointerStrumContext: null,
@@ -368,11 +364,6 @@ let autoAdvanceToggle;
 let unsavedIndicator;
 let strumSurface;
 let instrumentPanel;
-let appShell;
-let performanceModeButton;
-let performanceChords;
-let performancePrevButton;
-let performanceNextButton;
 let sequencePrevButton;
 let sequenceNextButton;
 let selectedChord;
@@ -426,11 +417,6 @@ function init() {
   unsavedIndicator = document.querySelector("#unsavedIndicator");
   strumSurface = document.querySelector("#strumSurface");
   instrumentPanel = document.querySelector(".instrument-panel");
-  appShell = document.querySelector(".app-shell");
-  performanceModeButton = document.querySelector("#performanceModeButton");
-  performanceChords = document.querySelector("#performanceChords");
-  performancePrevButton = document.querySelector("#performancePrevButton");
-  performanceNextButton = document.querySelector("#performanceNextButton");
   sequencePrevButton = document.querySelector("#sequencePrevButton");
   sequenceNextButton = document.querySelector("#sequenceNextButton");
   selectedChord = document.querySelector("#selectedChord");
@@ -548,9 +534,6 @@ function bindControls() {
   exportSongButton.addEventListener("click", exportCurrentSong);
   importSongButton.addEventListener("click", openSongImportPicker);
   songImportInput.addEventListener("change", importSelectedSongFile);
-  performanceModeButton.addEventListener("click", togglePerformanceMode);
-  performancePrevButton.addEventListener("click", () => moveSequenceSelection(-1));
-  performanceNextButton.addEventListener("click", () => moveSequenceSelection(1));
   sequencePrevButton.addEventListener("click", () => moveSequenceSelection(-1));
   sequenceNextButton.addEventListener("click", () => moveSequenceSelection(1));
   document.querySelectorAll(".sequence-drawer-toggle").forEach((button) => {
@@ -737,20 +720,6 @@ function bindStrumButton(selector, direction) {
   });
 }
 
-function togglePerformanceMode() {
-  state.performanceMode = !state.performanceMode;
-  updatePerformanceMode();
-  saveSettings();
-}
-
-function updatePerformanceMode() {
-  appShell.classList.toggle("is-performance-mode", state.performanceMode);
-  performanceModeButton.classList.toggle("is-active", state.performanceMode);
-  performanceModeButton.setAttribute("aria-pressed", String(state.performanceMode));
-  performanceModeButton.textContent = state.performanceMode ? "Edit" : "Play";
-  renderPerformanceStrip();
-}
-
 function toggleSequenceDrawer(activeButton) {
   const panelId = activeButton.getAttribute("aria-controls");
   const activePanel = panelId ? document.getElementById(panelId) : null;
@@ -770,53 +739,10 @@ function toggleSequenceDrawer(activeButton) {
   }
 }
 
-function renderPerformanceStrip() {
-  if (!performanceChords) {
-    updateSequenceNavigationButtons();
-    return;
-  }
-
-  performanceChords.replaceChildren();
-  const hasSequence = state.sequence.length > 0;
-  const chords = hasSequence ? state.sequence : state.chord ? [state.chord] : [];
-
-  chords.forEach((chord, index) => {
-    const button = document.createElement("button");
-    const isActive = hasSequence ? index === state.sequenceIndex : chord.name === state.chord?.name;
-    button.className = "performance-chip";
-    button.type = "button";
-    button.textContent = chord.name;
-    button.classList.toggle("is-active", isActive);
-    button.setAttribute("aria-pressed", String(isActive));
-    button.setAttribute("aria-label", `Select ${chord.name}`);
-    button.addEventListener("click", () => {
-      if (hasSequence) {
-        selectChord(chord, index);
-        return;
-      }
-
-      selectChord(chord);
-    });
-
-    performanceChords.append(button);
-  });
-
-  updateSequenceNavigationButtons();
-
-  if (state.performanceMode) {
-    window.requestAnimationFrame(() => {
-      performanceChords.querySelector(".performance-chip.is-active")?.scrollIntoView({
-        block: "nearest",
-        inline: "center",
-      });
-    });
-  }
-}
-
 function updateSequenceNavigationButtons() {
   const isDisabled = state.sequence.length < 2;
 
-  [performancePrevButton, performanceNextButton, sequencePrevButton, sequenceNextButton].forEach((button) => {
+  [sequencePrevButton, sequenceNextButton].forEach((button) => {
     if (button) {
       button.disabled = isDisabled;
     }
@@ -922,7 +848,7 @@ function updateChordDisplay() {
     button.setAttribute("aria-pressed", String(isActive));
   });
 
-  renderPerformanceStrip();
+  updateSequenceNavigationButtons();
 }
 
 function selectChord(chord, sequenceIndex = null, { scrollSelectedChord = sequenceIndex !== null, scrollSectionToTop = false } = {}) {
@@ -1639,7 +1565,6 @@ function saveSettings() {
       SETTINGS_STORAGE_KEY,
       JSON.stringify({
         autoAdvance: state.autoAdvance,
-        performanceMode: state.performanceMode,
       }),
     );
   } catch (_) {
@@ -1652,15 +1577,11 @@ function restoreSettings() {
     const savedValue = window.localStorage.getItem(SETTINGS_STORAGE_KEY);
     const savedSettings = JSON.parse(savedValue ?? "{}");
     state.autoAdvance = savedSettings.autoAdvance === true;
-    state.performanceMode = savedSettings.performanceMode === true;
     autoAdvanceToggle.checked = state.autoAdvance;
   } catch (_) {
     state.autoAdvance = false;
-    state.performanceMode = false;
     autoAdvanceToggle.checked = false;
   }
-
-  updatePerformanceMode();
 }
 
 function serializeSavedChord(chord) {
@@ -1863,7 +1784,7 @@ function renderSequence({ scrollSelectedChord = false, scrollSectionToTop = fals
     empty.className = "sequence-empty";
     empty.textContent = "Empty";
     sequenceList.append(empty);
-    renderPerformanceStrip();
+    updateSequenceNavigationButtons();
     return;
   }
 
@@ -1946,7 +1867,7 @@ function renderSequence({ scrollSelectedChord = false, scrollSectionToTop = fals
     scrollSelectedSequenceChordIntoView();
   }
 
-  renderPerformanceStrip();
+  updateSequenceNavigationButtons();
 }
 
 function sequenceChordRowScrollPositions() {
@@ -3786,9 +3707,8 @@ function pointerStrumAxisPosition(event) {
 
 function pointerStrumAxisMetrics(event) {
   const rect = strumSurface.getBoundingClientRect();
-  const isHorizontalStringLayout = state.performanceMode;
-  const length = isHorizontalStringLayout ? rect.height : rect.width;
-  const offset = isHorizontalStringLayout ? event.clientY - rect.top : event.clientX - rect.left;
+  const length = rect.width;
+  const offset = event.clientX - rect.left;
   return { length, offset };
 }
 
@@ -3815,9 +3735,7 @@ function crossedPointerStringHits(fromOffset, toOffset, fromTime, toTime) {
   }
 
   const direction = movement > 0 ? 1 : -1;
-  const length = state.performanceMode
-    ? strumSurface.getBoundingClientRect().height
-    : strumSurface.getBoundingClientRect().width;
+  const length = strumSurface.getBoundingClientRect().width;
   const stringSize = length / STRINGS.length;
   const elapsed = Math.max(16, toTime - fromTime);
   const velocity = pointerStrumVelocity(Math.abs(movement), elapsed);

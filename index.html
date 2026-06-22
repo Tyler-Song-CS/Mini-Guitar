@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
-    <link rel="stylesheet" href="styles.css?v=80">
+    <link rel="stylesheet" href="styles.css?v=81">
   </head>
   <body>
     <main class="app-shell" aria-label="Mini Guitar chord strum mode">
@@ -23,7 +23,6 @@
           </div>
         </div>
         <div class="topbar-actions">
-          <button id="performanceModeButton" class="mode-toggle" type="button" aria-pressed="false">Play</button>
           <div class="active-chord" aria-live="polite">
             <span id="selectedChord">Choose</span>
             <span id="selectedVoicing">Select chord</span>
@@ -99,12 +98,6 @@
             <h2 id="instrumentTitle">Strings</h2>
           </div>
 
-          <div class="performance-strip" id="performanceStrip" aria-label="Performance chord sequence">
-            <button id="performancePrevButton" class="performance-nav" type="button" aria-label="Previous chord">&larr;</button>
-            <div id="performanceChords" class="performance-chords" aria-live="polite"></div>
-            <button id="performanceNextButton" class="performance-nav" type="button" aria-label="Next chord">&rarr;</button>
-          </div>
-
           <div class="guitar-body">
             <div class="sound-hole" aria-hidden="true"></div>
             <div class="strum-surface" id="strumSurface" role="application" aria-label="Swipe across any range of guitar strings" aria-keyshortcuts="T Y U I O P"></div>
@@ -149,6 +142,6 @@
     </main>
     <script src="vendor/webaudiofont/WebAudioFontPlayer.js"></script>
     <script src="vendor/webaudiofont/0250_LK_AcousticSteel_SF2_file.js"></script>
-    <script src="app.js?v=152"></script>
+    <script src="app.js?v=153"></script>
   </body>
 </html>
