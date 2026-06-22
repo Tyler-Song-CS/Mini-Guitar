@@ -46,8 +46,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v159";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=159";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v161";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=161";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -3890,13 +3890,16 @@ function playPointerStringHits(hits, strumId = nextStrumId, { waitForAudio = tru
   });
 }
 
-function playFullStrum(direction, { waitForAudio = true, chord = currentChordSnapshot() } = {}) {
+function playFullStrum(direction, { waitForAudio = true, chord = currentChordSnapshot(), shouldAutoAdvance = true } = {}) {
   if (!ensureAudio() || !chord) {
     return;
   }
 
   if (waitForAudio && audioContext.state !== "running") {
-    playAfterAudioResume(() => playFullStrum(direction, { waitForAudio: false, chord }));
+    playAfterAudioResume(() => playFullStrum(direction, { waitForAudio: false, chord, shouldAutoAdvance: false }));
+    if (shouldAutoAdvance) {
+      autoAdvanceSequenceAfterStrum();
+    }
     return;
   }
 
@@ -3913,8 +3916,11 @@ function playFullStrum(direction, { waitForAudio = true, chord = currentChordSna
       playString(stringIndex, velocity, when, direction, strumId);
     });
     duckActiveStrum(isFastStrum, previousSampledNotes, previousTransientSounds);
-    autoAdvanceSequenceAfterStrum();
   });
+
+  if (shouldAutoAdvance) {
+    autoAdvanceSequenceAfterStrum();
+  }
 }
 
 function buildStrumHits(direction, isFastStrum, startTime) {
