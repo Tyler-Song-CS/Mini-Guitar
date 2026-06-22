@@ -156,7 +156,7 @@ h1 {
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-rows: minmax(200px, 1fr) auto;
+  grid-template-rows: auto minmax(200px, 1fr);
   gap: 12px;
 }
 
@@ -170,6 +170,7 @@ h1 {
 }
 
 .instrument-panel {
+  grid-row: 2;
   touch-action: none;
   overscroll-behavior: contain;
   -webkit-tap-highlight-color: transparent;
@@ -179,6 +180,7 @@ h1 {
 }
 
 .control-panel {
+  grid-row: 1;
   padding: 12px;
 }
 
@@ -595,10 +597,15 @@ h2 {
   padding: 10px 12px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "heading"
+    "managers"
+    "list";
   gap: 8px;
 }
 
 .sequence-heading {
+  grid-area: heading;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(58px, auto);
   align-items: center;
@@ -654,6 +661,7 @@ h2 {
 }
 
 .sequence-managers {
+  grid-area: managers;
   min-width: 0;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -816,6 +824,7 @@ h2 {
 }
 
 .sequence-list {
+  grid-area: list;
   min-height: clamp(190px, 28svh, 250px);
   max-height: min(44svh, 380px);
   display: grid;
@@ -1274,6 +1283,7 @@ button:active {
 }
 
 .app-shell.is-performance-mode .instrument-panel {
+  grid-row: 1;
   min-height: 0;
 }
 
@@ -1353,6 +1363,16 @@ button:active {
     min-height: 0;
   }
 
+  .instrument-panel {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .control-panel {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
   .control-panel {
     overflow: hidden;
   }
@@ -1397,18 +1417,20 @@ button:active {
   }
 
   .sequence-panel {
-    grid-template-columns: minmax(178px, 0.27fr) minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "heading"
+      "managers"
+      "list";
+    grid-template-rows: auto auto minmax(0, 1fr);
     align-items: start;
-    column-gap: 10px;
-    row-gap: 6px;
+    gap: 6px;
     padding: 8px 10px;
   }
 
   .sequence-heading {
-    grid-column: 1;
-    grid-row: 1;
-    grid-template-columns: 1fr;
+    grid-area: heading;
+    grid-template-columns: minmax(0, 1fr) minmax(58px, auto);
     align-items: start;
     gap: 6px;
   }
@@ -1450,8 +1472,7 @@ button:active {
   }
 
   .sequence-managers {
-    grid-column: 1;
-    grid-row: 2;
+    grid-area: managers;
     gap: 4px;
   }
 
@@ -1499,8 +1520,7 @@ button:active {
   }
 
   .sequence-list {
-    grid-column: 2;
-    grid-row: 1 / span 2;
+    grid-area: list;
     min-height: 116px;
     max-height: min(38svh, 150px);
   }
@@ -1595,7 +1615,7 @@ button:active {
 
   .workspace {
     gap: 9px;
-    grid-template-rows: minmax(214px, 1fr) auto;
+    grid-template-rows: auto minmax(214px, 1fr);
   }
 
   .instrument-panel,
