@@ -46,8 +46,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v168";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=168";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v171";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=171";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -342,6 +342,8 @@ let compressor;
 let chordGrid;
 let chordSearch;
 let sequenceList;
+let activeSectionChords;
+let activeSectionChordTitle;
 let addChordButton;
 let songSelect;
 let songNameInput;
@@ -369,6 +371,16 @@ let sequenceNextButton;
 let selectedChord;
 let selectedVoicing;
 let capoValue;
+let appDialog;
+let appDialogForm;
+let appDialogTitle;
+let appDialogMessage;
+let appDialogField;
+let appDialogInputLabel;
+let appDialogInput;
+let appDialogCancel;
+let appDialogConfirm;
+let activeDialogRequest = null;
 let acousticPlayer;
 let acousticPreset;
 let acousticPresetStarted = false;
@@ -395,6 +407,8 @@ function init() {
   chordGrid = document.querySelector("#chordGrid");
   chordSearch = document.querySelector("#chordSearch");
   sequenceList = document.querySelector("#sequenceList");
+  activeSectionChords = document.querySelector("#activeSectionChords");
+  activeSectionChordTitle = document.querySelector("#activeSectionChordTitle");
   addChordButton = document.querySelector("#addChordButton");
   songSelect = document.querySelector("#songSelect");
   songNameInput = document.querySelector("#songNameInput");
@@ -422,6 +436,15 @@ function init() {
   selectedChord = document.querySelector("#selectedChord");
   selectedVoicing = document.querySelector("#selectedVoicing");
   capoValue = document.querySelector("#capoValue");
+  appDialog = document.querySelector("#appDialog");
+  appDialogForm = document.querySelector("#appDialogForm");
+  appDialogTitle = document.querySelector("#appDialogTitle");
+  appDialogMessage = document.querySelector("#appDialogMessage");
+  appDialogField = document.querySelector("#appDialogField");
+  appDialogInputLabel = document.querySelector("#appDialogInputLabel");
+  appDialogInput = document.querySelector("#appDialogInput");
+  appDialogCancel = document.querySelector("#appDialogCancel");
+  appDialogConfirm = document.querySelector("#appDialogConfirm");
 
   const initialSearch = new URLSearchParams(window.location.search).get("search") ?? "";
   state.searchQuery = initialSearch.trim().toLowerCase();
@@ -536,9 +559,21 @@ function bindControls() {
   songImportInput.addEventListener("change", importSelectedSongFile);
   sequencePrevButton.addEventListener("click", () => moveSequenceSelection(-1));
   sequenceNextButton.addEventListener("click", () => moveSequenceSelection(1));
+  activeSectionChords.addEventListener("dragover", (event) => {
+    if (event.target.closest(".sequence-chip")) {
+      return;
+    }
+
+    handleSequenceSectionDragOver(event, state.activeSectionId);
+  });
+  activeSectionChords.addEventListener("drop", handleSequenceDrop);
   document.querySelectorAll(".sequence-drawer-toggle").forEach((button) => {
     button.addEventListener("click", () => toggleSequenceDrawer(button));
   });
+  appDialogForm.addEventListener("submit", handleAppDialogSubmit);
+  appDialogCancel.addEventListener("click", () => closeAppDialog(appDialogCancelValue()));
+  appDialog.querySelector("[data-dialog-cancel]").addEventListener("click", () => closeAppDialog(appDialogCancelValue()));
+  appDialog.addEventListener("keydown", handleAppDialogKeydown);
 
   document.querySelector("#muteToggle").addEventListener("change", (event) => {
     state.palmMute = event.target.checked;
@@ -739,6 +774,107 @@ function toggleSequenceDrawer(activeButton) {
   }
 }
 
+function requestDialogText({ title, label = "Name", defaultValue = "", confirmText = "Save", maxLength = 64 }) {
+  return openAppDialog({
+    type: "text",
+    title,
+    label,
+    defaultValue,
+    confirmText,
+    maxLength,
+  });
+}
+
+function requestDialogConfirmation({ title, message, confirmText = "OK", destructive = false }) {
+  return openAppDialog({
+    type: "confirm",
+    title,
+    message,
+    confirmText,
+    destructive,
+  });
+}
+
+function openAppDialog(options) {
+  if (activeDialogRequest) {
+    closeAppDialog(appDialogCancelValue());
+  }
+
+  return new Promise((resolve) => {
+    const isTextDialog = options.type === "text";
+    activeDialogRequest = {
+      resolve,
+      type: options.type,
+      previousFocus: document.activeElement instanceof HTMLElement ? document.activeElement : null,
+    };
+
+    appDialogTitle.textContent = options.title;
+    appDialogMessage.textContent = options.message ?? "";
+    appDialogMessage.hidden = !options.message;
+    appDialogField.hidden = !isTextDialog;
+    appDialogInputLabel.textContent = options.label ?? "Name";
+    appDialogInput.value = options.defaultValue ?? "";
+    appDialogInput.maxLength = options.maxLength ?? 64;
+    appDialogInput.required = isTextDialog;
+    appDialogConfirm.textContent = options.confirmText ?? "OK";
+    appDialogConfirm.classList.toggle("is-danger", Boolean(options.destructive));
+    appDialog.hidden = false;
+    document.body.classList.add("has-app-dialog");
+
+    window.requestAnimationFrame(() => {
+      if (isTextDialog) {
+        appDialogInput.focus({ preventScroll: true });
+        appDialogInput.select();
+      } else {
+        appDialogConfirm.focus({ preventScroll: true });
+      }
+    });
+  });
+}
+
+function handleAppDialogSubmit(event) {
+  event.preventDefault();
+
+  if (!activeDialogRequest) {
+    return;
+  }
+
+  if (activeDialogRequest.type === "text") {
+    closeAppDialog(appDialogInput.value);
+    return;
+  }
+
+  closeAppDialog(true);
+}
+
+function handleAppDialogKeydown(event) {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeAppDialog(appDialogCancelValue());
+  }
+}
+
+function appDialogCancelValue() {
+  return activeDialogRequest?.type === "confirm" ? false : null;
+}
+
+function closeAppDialog(value) {
+  if (!activeDialogRequest) {
+    return;
+  }
+
+  const { resolve, previousFocus } = activeDialogRequest;
+  activeDialogRequest = null;
+  appDialog.hidden = true;
+  document.body.classList.remove("has-app-dialog");
+  appDialogConfirm.classList.remove("is-danger");
+  resolve(value);
+
+  if (previousFocus?.isConnected) {
+    previousFocus.focus({ preventScroll: true });
+  }
+}
+
 function updateSequenceNavigationButtons() {
   const isDisabled = state.sequence.length < 2;
 
@@ -751,6 +887,10 @@ function updateSequenceNavigationButtons() {
 
 function handleKeyboardStrum(event) {
   if (event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.isComposing) {
+    return;
+  }
+
+  if (activeDialogRequest) {
     return;
   }
 
@@ -914,8 +1054,14 @@ function addSelectedChordToSequence() {
   renderSequence({ scrollSelectedChord: true });
 }
 
-function addSequenceSection() {
-  const name = window.prompt("Section name", nextSectionName());
+async function addSequenceSection() {
+  const name = await requestDialogText({
+    title: "New section",
+    label: "Section name",
+    defaultValue: nextSectionName(),
+    confirmText: "Create",
+    maxLength: MAX_SECTION_NAME_LENGTH,
+  });
   const cleanedName = sanitizeSectionName(name);
 
   if (!cleanedName) {
@@ -929,14 +1075,20 @@ function addSequenceSection() {
   renderSequence();
 }
 
-function renameActiveSection() {
+async function renameActiveSection() {
   const section = activeSection();
 
   if (!section) {
     return;
   }
 
-  const name = window.prompt("Section name", section.name);
+  const name = await requestDialogText({
+    title: "Rename section",
+    label: "Section name",
+    defaultValue: section.name,
+    confirmText: "Rename",
+    maxLength: MAX_SECTION_NAME_LENGTH,
+  });
   const cleanedName = sanitizeSectionName(name);
 
   if (!cleanedName) {
@@ -1012,7 +1164,7 @@ function updateActiveSectionLyrics(event) {
   renderSequence();
 }
 
-function deleteActiveSection() {
+async function deleteActiveSection() {
   const section = activeSection();
 
   if (!section || state.sections.length <= 1) {
@@ -1025,7 +1177,14 @@ function deleteActiveSection() {
     ? `Delete "${section.name}" and remove its ${chordText}?`
     : `Delete "${section.name}"?`;
 
-  if (!window.confirm(message)) {
+  const shouldDelete = await requestDialogConfirmation({
+    title: "Delete section",
+    message,
+    confirmText: "Delete",
+    destructive: true,
+  });
+
+  if (!shouldDelete) {
     return;
   }
 
@@ -1215,9 +1374,18 @@ function uniqueSectionName(name, currentSectionId = null) {
   return nextName;
 }
 
-function createNewSong() {
-  if (songHasUnsavedChanges() && !window.confirm("Discard unsaved changes and start a new song?")) {
-    return;
+async function createNewSong() {
+  if (songHasUnsavedChanges()) {
+    const shouldDiscard = await requestDialogConfirmation({
+      title: "Start new song",
+      message: "Discard unsaved changes and start a new song?",
+      confirmText: "Discard",
+      destructive: true,
+    });
+
+    if (!shouldDiscard) {
+      return;
+    }
   }
 
   const section = createSequenceSection(DEFAULT_SECTION_NAME);
@@ -1401,7 +1569,7 @@ function selectedSavedSong() {
   return state.savedSongs.find((song) => song.id === selectedSongId) ?? null;
 }
 
-function handleSongSelectionChange() {
+async function handleSongSelectionChange() {
   const requestedSongId = songSelect.value;
   const previousSongId = state.activeSongId ?? "";
 
@@ -1425,10 +1593,19 @@ function handleSongSelectionChange() {
     return;
   }
 
-  if (songHasUnsavedChanges() && !window.confirm("Discard unsaved changes and load this song?")) {
-    songSelect.value = previousSongId;
-    updateSongActionState();
-    return;
+  if (songHasUnsavedChanges()) {
+    const shouldLoad = await requestDialogConfirmation({
+      title: "Load song",
+      message: "Discard unsaved changes and load this song?",
+      confirmText: "Load",
+      destructive: true,
+    });
+
+    if (!shouldLoad) {
+      songSelect.value = previousSongId;
+      updateSongActionState();
+      return;
+    }
   }
 
   loadSong(song);
@@ -1784,6 +1961,7 @@ function renderSequence({ scrollSelectedChord = false, scrollSectionToTop = fals
     empty.className = "sequence-empty";
     empty.textContent = "Empty";
     sequenceList.append(empty);
+    renderActiveSectionChords();
     updateSequenceNavigationButtons();
     return;
   }
@@ -1824,38 +2002,16 @@ function renderSequence({ scrollSelectedChord = false, scrollSectionToTop = fals
     const lyricsText = normalizeSectionLyrics(section.lyrics);
     const lyrics = renderSectionLyrics(lyricsText, section.id);
 
-    const chordList = document.createElement("div");
-    chordList.className = "sequence-section-chords";
-    chordList.dataset.sectionId = section.id;
-    chordList.addEventListener("dragover", (event) => {
-      if (event.target.closest(".sequence-chip")) {
-        return;
-      }
-
-      handleSequenceSectionDragOver(event, section.id);
-    });
-    chordList.addEventListener("drop", handleSequenceDrop);
-
-    if (!chords.length) {
-      const empty = document.createElement("span");
-      empty.className = "section-empty";
-      empty.textContent = "Empty";
-      chordList.append(empty);
-    }
-
-    chords.forEach(({ chord, index }) => {
-      chordList.append(renderSequenceChip(chord, index));
-    });
-
     group.append(sectionButton);
 
     if (lyricsText.trim()) {
       group.append(lyrics);
     }
 
-    group.append(chordList);
     sequenceList.append(group);
   });
+
+  renderActiveSectionChords();
 
   if (scrollSectionToTop) {
     scrollActiveSequenceSectionToTop();
@@ -1870,28 +2026,48 @@ function renderSequence({ scrollSelectedChord = false, scrollSectionToTop = fals
   updateSequenceNavigationButtons();
 }
 
-function sequenceChordRowScrollPositions() {
-  const scrollPositions = new Map();
+function renderActiveSectionChords() {
+  ensureActiveSection();
+  const section = activeSection();
+  const sectionId = section?.id ?? "";
+  const chords = activeSectionChordEntries();
 
-  sequenceList.querySelectorAll(".sequence-section-chords").forEach((row) => {
-    scrollPositions.set(row.dataset.sectionId, row.scrollLeft);
-  });
+  activeSectionChordTitle.textContent = section?.name ?? DEFAULT_SECTION_NAME;
+  activeSectionChords.dataset.sectionId = sectionId;
+  activeSectionChords.replaceChildren();
 
-  return scrollPositions;
-}
-
-function restoreSequenceChordRowScrollPositions(scrollPositions) {
-  if (!scrollPositions?.size) {
+  if (!chords.length) {
+    const empty = document.createElement("span");
+    empty.className = "section-empty";
+    empty.textContent = "Empty";
+    activeSectionChords.append(empty);
     return;
   }
 
-  sequenceList.querySelectorAll(".sequence-section-chords").forEach((row) => {
-    const scrollLeft = scrollPositions.get(row.dataset.sectionId);
-
-    if (Number.isFinite(scrollLeft)) {
-      row.scrollLeft = scrollLeft;
-    }
+  chords.forEach(({ chord, index }) => {
+    activeSectionChords.append(renderSequenceChip(chord, index));
   });
+}
+
+function activeSectionChordEntries() {
+  return state.sequence
+    .map((chord, index) => ({ chord, index }))
+    .filter(({ chord }) => chord.sectionId === state.activeSectionId);
+}
+
+function sequenceChordRowScrollPositions() {
+  return {
+    scrollLeft: activeSectionChords.scrollLeft,
+    sectionId: state.activeSectionId,
+  };
+}
+
+function restoreSequenceChordRowScrollPositions(scrollPositions) {
+  if (!scrollPositions || scrollPositions.sectionId !== state.activeSectionId) {
+    return;
+  }
+
+  activeSectionChords.scrollLeft = scrollPositions.scrollLeft;
 }
 
 function scrollActiveSequenceSectionToTop() {
@@ -1910,7 +2086,7 @@ function scrollActiveSequenceSectionToTop() {
     sequenceList.scrollTop += sectionRect.top - visibleTop;
   }
 
-  activeSection.querySelector(".sequence-section-chords")?.scrollTo({ left: 0 });
+  activeSectionChords.scrollTo({ left: 0 });
 }
 
 function sectionScrollTopOffset(activeSection, listRect, sectionRect) {
@@ -1948,11 +2124,12 @@ function activeSectionTitleHeight(activeSection) {
 }
 
 function scrollSelectedSequenceChordIntoView() {
-  if (scrollSelectedLyricMarkerIntoView()) {
-    return;
-  }
+  scrollSelectedLyricMarkerIntoView();
+  scrollSelectedActiveSectionChordIntoView();
+}
 
-  sequenceList.querySelector(".sequence-chip.is-active")?.scrollIntoView({
+function scrollSelectedActiveSectionChordIntoView() {
+  activeSectionChords.querySelector(".sequence-chip.is-active")?.scrollIntoView({
     block: "nearest",
     inline: "center",
   });
@@ -2295,7 +2472,11 @@ function findChordByDisplayName(name) {
 }
 
 function focusSelectedSequenceChord() {
-  sequenceList.querySelector(".sequence-chip.is-active .sequence-select")?.focus({ preventScroll: true });
+  activeSectionChords.querySelector(".sequence-chip.is-active .sequence-select")?.focus({ preventScroll: true });
+}
+
+function sequenceInteractionContains(element) {
+  return Boolean(element && (sequenceList.contains(element) || activeSectionChords.contains(element)));
 }
 
 function handleSequenceDragStart(event, index) {
@@ -2459,7 +2640,7 @@ function updateSequencePointerDropTarget(clientX, clientY) {
   const target = document.elementFromPoint(clientX, clientY);
   const targetChip = target?.closest?.(".sequence-chip");
 
-  if (targetChip && sequenceList.contains(targetChip)) {
+  if (targetChip && sequenceInteractionContains(targetChip)) {
     const index = Number(targetChip.dataset.index);
     const chord = state.sequence[index];
 
@@ -2486,7 +2667,7 @@ function updateSequencePointerDropTarget(clientX, clientY) {
 
   const chordRow = target?.closest?.(".sequence-section-chords");
 
-  if (chordRow && sequenceList.contains(chordRow)) {
+  if (chordRow && sequenceInteractionContains(chordRow)) {
     const sectionId = chordRow.dataset.sectionId;
     setSequenceDropTarget(sequenceInsertIndexForSection(sectionId), sectionId, chordRow, "section");
   }

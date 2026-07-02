@@ -10,7 +10,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
-    <link rel="stylesheet" href="styles.css?v=81">
+    <link rel="stylesheet" href="styles.css?v=84">
   </head>
   <body>
     <main class="app-shell" aria-label="Mini Guitar chord strum mode">
@@ -33,7 +33,7 @@
       <section class="sequence-panel" aria-labelledby="sequenceTitle">
         <div class="sequence-heading">
           <div class="sequence-title-row">
-            <h2 id="sequenceTitle">Song Builder</h2>
+            <h2 id="sequenceTitle">Song Sheet</h2>
             <span class="sequence-song-status">
               <span id="songBuilderSongName" class="sequence-song-name">Untitled Song</span>
               <span id="unsavedIndicator" class="unsaved-indicator" hidden aria-label="Unsaved changes"></span>
@@ -43,7 +43,6 @@
             <button id="addChordButton" class="is-primary" type="button" aria-label="Choose a chord to add" disabled>+ Chord</button>
           </div>
         </div>
-        <div class="sequence-list" id="sequenceList" aria-live="polite" aria-keyshortcuts="Q E"></div>
         <div class="sequence-managers">
           <button id="chordsSummary" class="sequence-drawer-toggle chord-manage-toggle" type="button" aria-expanded="false" aria-controls="chordManageBody">Chords</button>
           <button class="sequence-drawer-toggle song-manage-toggle" type="button" aria-expanded="false" aria-controls="songManageBody">Songs</button>
@@ -89,6 +88,14 @@
               </div>
             </div>
           </div>
+        </div>
+        <div class="sequence-list" id="sequenceList" aria-live="polite"></div>
+        <div class="active-section-chords" aria-label="Active section chords">
+          <div class="active-section-chords-heading">
+            <span>Section Chords</span>
+            <strong id="activeSectionChordTitle">Song</strong>
+          </div>
+          <div class="sequence-section-chords" id="activeSectionChords" aria-live="polite" aria-keyshortcuts="Q E"></div>
         </div>
       </section>
 
@@ -140,8 +147,23 @@
         </section>
       </section>
     </main>
+    <div id="appDialog" class="app-dialog" role="dialog" aria-modal="true" aria-labelledby="appDialogTitle" aria-describedby="appDialogMessage" hidden>
+      <button class="app-dialog-backdrop" type="button" data-dialog-cancel aria-label="Cancel dialog"></button>
+      <form id="appDialogForm" class="app-dialog-card">
+        <h2 id="appDialogTitle">Section name</h2>
+        <p id="appDialogMessage"></p>
+        <label id="appDialogField" class="app-dialog-field">
+          <span id="appDialogInputLabel">Name</span>
+          <input id="appDialogInput" type="text" autocomplete="off">
+        </label>
+        <div class="app-dialog-actions">
+          <button id="appDialogCancel" type="button">Cancel</button>
+          <button id="appDialogConfirm" class="is-primary" type="submit">Save</button>
+        </div>
+      </form>
+    </div>
     <script src="vendor/webaudiofont/WebAudioFontPlayer.js"></script>
     <script src="vendor/webaudiofont/0250_LK_AcousticSteel_SF2_file.js"></script>
-    <script src="app.js?v=155"></script>
+    <script src="app.js?v=159"></script>
   </body>
 </html>
