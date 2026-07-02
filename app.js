@@ -46,8 +46,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v166";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=166";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v168";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=168";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -2165,7 +2165,7 @@ function renderSectionLyrics(lyricsText, sectionId) {
     lineElement.addEventListener("drop", handleLyricLineDrop);
 
     if (isChordLine) {
-      appendChordLineContent(lineElement, line, sectionId, chordOccurrences);
+      appendChordLineContent(lineElement, line, sectionId, chordOccurrences, lineIndex);
     } else {
       lineElement.textContent = line || "\u00a0";
     }
@@ -2181,7 +2181,7 @@ function sectionLyricLineIsChordLine(line) {
   return Boolean(tokens.length) && tokens.every((token) => resolveLyricChordToken(token));
 }
 
-function appendChordLineContent(lineElement, line, sectionId, chordOccurrences) {
+function appendChordLineContent(lineElement, line, sectionId, chordOccurrences, lineIndex) {
   let cursor = 0;
 
   line.replace(/\S+/g, (token, index) => {
@@ -2195,7 +2195,10 @@ function appendChordLineContent(lineElement, line, sectionId, chordOccurrences) 
       const occurrenceKey = normalizeSearch(chord.name);
       const occurrenceIndex = chordOccurrences.get(occurrenceKey) ?? 0;
       chordOccurrences.set(occurrenceKey, occurrenceIndex + 1);
-      lineElement.append(renderLyricChordButton(token, chord, sectionId, occurrenceIndex));
+      lineElement.append(renderLyricChordButton(token, chord, sectionId, occurrenceIndex, {
+        lineIndex,
+        start: index,
+      }));
     } else {
       lineElement.append(document.createTextNode(token));
     }
@@ -2209,8 +2212,8 @@ function appendChordLineContent(lineElement, line, sectionId, chordOccurrences) 
   }
 }
 
-function renderLyricChordButton(label, chord, sectionId, occurrenceIndex) {
-  const isActive = lyricChordMatchesSelectedSequence(chord, sectionId, occurrenceIndex);
+function renderLyricChordButton(label, chord, sectionId, occurrenceIndex, markerPosition) {
+  const isActive = lyricChordMatchesSelectedSequence(chord, sectionId, markerPosition);
   const button = document.createElement("button");
   button.className = "lyric-chord";
   button.classList.toggle("is-active", isActive);
@@ -2222,7 +2225,7 @@ function renderLyricChordButton(label, chord, sectionId, occurrenceIndex) {
   return button;
 }
 
-function lyricChordMatchesSelectedSequence(chord, sectionId, occurrenceIndex) {
+function lyricChordMatchesSelectedSequence(chord, sectionId, markerPosition) {
   if (state.sequenceIndex === null) {
     return false;
   }
@@ -2233,7 +2236,25 @@ function lyricChordMatchesSelectedSequence(chord, sectionId, occurrenceIndex) {
     return false;
   }
 
-  return sequenceChordOccurrenceInSection(state.sequenceIndex).index === occurrenceIndex;
+  const selectedPlacement = selectedLyricChordPlacement();
+  return Boolean(
+    selectedPlacement
+      && selectedPlacement.lineIndex === markerPosition?.lineIndex
+      && selectedPlacement.start === markerPosition?.start,
+  );
+}
+
+function selectedLyricChordPlacement() {
+  const selectedChord = state.sequence[state.sequenceIndex];
+  const section = state.sections.find((savedSection) => savedSection.id === selectedChord?.sectionId);
+
+  if (!selectedChord || !section) {
+    return null;
+  }
+
+  const occurrence = sequenceChordOccurrenceInSection(state.sequenceIndex);
+  const lines = normalizeSectionLyrics(section.lyrics).split("\n");
+  return chordPlacementForOccurrence(lines, selectedChord.name, occurrence.index);
 }
 
 function selectLyricChord(chord, sectionId, occurrenceIndex = 0) {
@@ -2645,22 +2666,7 @@ function placeSequenceChordOnLyrics(sequenceIndex, dropTarget) {
 
   saveSequence();
   renderSequence();
-  scrollSectionChordRowToStart(chord.sectionId);
   return true;
-}
-
-function scrollSectionChordRowToStart(sectionId) {
-  const chordRow = Array.from(sequenceList.querySelectorAll(".sequence-section-chords"))
-    .find((row) => row.dataset.sectionId === sectionId);
-
-  if (!chordRow) {
-    return;
-  }
-
-  chordRow.scrollLeft = 0;
-  requestAnimationFrame(() => {
-    chordRow.scrollLeft = 0;
-  });
 }
 
 function prepareChordLyricPlacement(lines, chordName, dropTarget) {
