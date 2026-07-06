@@ -7,15 +7,6 @@ const STRINGS = [
   { name: "E4", midi: 64, size: "2.2px" },
 ];
 
-const STRING_KEY_MAP = {
-  t: 0,
-  y: 1,
-  u: 2,
-  i: 3,
-  o: 4,
-  p: 5,
-};
-
 const FAST_STRUM_INTERVAL = 0.22;
 const POINTER_STRUM_MIN_VELOCITY = 0.22;
 const POINTER_STRUM_MAX_VELOCITY = 1;
@@ -46,29 +37,11 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v171";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=171";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v172";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=172";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
-const KEYBOARD_EDITING_SELECTOR = [
-  "input",
-  "textarea",
-  "select",
-  "[contenteditable='true']",
-  "summary",
-  ".sequence-delete",
-  ".sequence-managers",
-  ".sequence-actions",
-  ".control-row",
-].join(", ");
-const KEYBOARD_PLAY_SURFACE_SELECTOR = [
-  "#strumSurface",
-  ".strum-buttons",
-  ".sequence-select",
-  ".sequence-section-title",
-  ".lyric-chord",
-].join(", ");
 const CHORD_TOKEN_PATTERN = /^[A-G](?:#|b)?(?:maj|min|m|dim|aug|sus|add|M|\+|o)?[0-9A-Za-z#b+\-()]*?(?:\/[A-G](?:#|b)?)?$/;
 const STRUM_PROFILES = {
   down: {
@@ -596,7 +569,6 @@ function bindControls() {
 
   bindStrumButton("#downStrum", 1);
   bindStrumButton("#upStrum", -1);
-  window.addEventListener("keydown", handleKeyboardStrum);
 
   const guitarBody = document.querySelector(".guitar-body");
   strumSurface.addEventListener("pointerdown", handlePointerDown);
@@ -617,7 +589,6 @@ function bindControls() {
 function armAudioOnNextGesture() {
   window.addEventListener("pointerdown", armAudio, { capture: true, once: true });
   window.addEventListener("touchstart", armAudio, { capture: true, once: true, passive: true });
-  window.addEventListener("keydown", armAudioFromKeyboard, { capture: true });
 }
 
 function armAudio() {
@@ -725,15 +696,6 @@ function waitForAcousticSamples() {
 
     checkSamples();
   });
-}
-
-function armAudioFromKeyboard(event) {
-  if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.isComposing) {
-    return;
-  }
-
-  armAudio();
-  window.removeEventListener("keydown", armAudioFromKeyboard, { capture: true });
 }
 
 function bindStrumButton(selector, direction) {
@@ -883,91 +845,6 @@ function updateSequenceNavigationButtons() {
       button.disabled = isDisabled;
     }
   });
-}
-
-function handleKeyboardStrum(event) {
-  if (event.defaultPrevented || event.repeat || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.isComposing) {
-    return;
-  }
-
-  if (activeDialogRequest) {
-    return;
-  }
-
-  const key = event.key.toLowerCase();
-
-  if (isKeyboardEditingTarget(event.target)) {
-    return;
-  }
-
-  if (key in STRING_KEY_MAP) {
-    event.preventDefault();
-    playKeyboardString(STRING_KEY_MAP[key]);
-    return;
-  }
-
-  if (key === "e") {
-    if (moveSequenceSelection(1)) {
-      event.preventDefault();
-    }
-    return;
-  }
-
-  if (key === "q") {
-    if (moveSequenceSelection(-1)) {
-      event.preventDefault();
-    }
-    return;
-  }
-
-  if (event.key === "ArrowDown") {
-    event.preventDefault();
-    playFullStrum(1);
-    return;
-  }
-
-  if (event.key === "ArrowUp") {
-    event.preventDefault();
-    playFullStrum(-1);
-  }
-}
-
-function playKeyboardString(stringIndex, { waitForAudio = true, chord = currentChordSnapshot() } = {}) {
-  if (!ensureAudio() || !chord) {
-    return;
-  }
-
-  if (waitForAudio && audioContext.state !== "running") {
-    playAfterAudioResume(() => playKeyboardString(stringIndex, { waitForAudio: false, chord }));
-    return;
-  }
-
-  withChordSnapshot(chord, () => {
-    const strumId = ++nextStrumId;
-    playString(
-      stringIndex,
-      humanizedVelocity(STRUM_PROFILES.pick.baseVelocity, stringIndex, 0),
-      audioContext.currentTime,
-      0,
-      strumId,
-    );
-  });
-}
-
-function isKeyboardEditingTarget(target) {
-  return isKeyboardEditingElement(target) || isKeyboardEditingElement(document.activeElement);
-}
-
-function isKeyboardEditingElement(element) {
-  if (!element?.closest) {
-    return false;
-  }
-
-  if (element.closest(KEYBOARD_PLAY_SURFACE_SELECTOR)) {
-    return false;
-  }
-
-  return Boolean(element.closest(KEYBOARD_EDITING_SELECTOR));
 }
 
 function updateChordDisplay() {
