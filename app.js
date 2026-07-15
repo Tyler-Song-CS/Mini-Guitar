@@ -37,8 +37,8 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v172";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=172";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v173";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=173";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
@@ -338,6 +338,7 @@ let deleteSectionButton;
 let autoAdvanceToggle;
 let unsavedIndicator;
 let strumSurface;
+let guitarBody;
 let instrumentPanel;
 let sequencePrevButton;
 let sequenceNextButton;
@@ -403,6 +404,7 @@ function init() {
   autoAdvanceToggle = document.querySelector("#autoAdvanceToggle");
   unsavedIndicator = document.querySelector("#unsavedIndicator");
   strumSurface = document.querySelector("#strumSurface");
+  guitarBody = document.querySelector(".guitar-body");
   instrumentPanel = document.querySelector(".instrument-panel");
   sequencePrevButton = document.querySelector("#sequencePrevButton");
   sequenceNextButton = document.querySelector("#sequenceNextButton");
@@ -570,11 +572,10 @@ function bindControls() {
   bindStrumButton("#downStrum", 1);
   bindStrumButton("#upStrum", -1);
 
-  const guitarBody = document.querySelector(".guitar-body");
-  strumSurface.addEventListener("pointerdown", handlePointerDown);
-  strumSurface.addEventListener("pointermove", handlePointerMove);
-  strumSurface.addEventListener("pointerup", handlePointerEnd);
-  strumSurface.addEventListener("pointercancel", handlePointerEnd);
+  guitarBody.addEventListener("pointerdown", handlePointerDown);
+  guitarBody.addEventListener("pointermove", handlePointerMove);
+  guitarBody.addEventListener("pointerup", handlePointerEnd);
+  guitarBody.addEventListener("pointercancel", handlePointerEnd);
   strumSurface.addEventListener("touchstart", preventInstrumentTouchDefault, { passive: false });
   strumSurface.addEventListener("touchend", preventInstrumentTouchDefault, { passive: false });
   strumSurface.addEventListener("touchcancel", preventInstrumentTouchDefault, { passive: false });
@@ -3652,7 +3653,7 @@ function preventInstrumentTouchDefault(event) {
 function handlePointerDown(event) {
   preventDefaultIfCancelable(event);
   const strum = beginStrum();
-  strumSurface.setPointerCapture(event.pointerId);
+  guitarBody.setPointerCapture(event.pointerId);
   state.pointerId = event.pointerId;
   state.pointerStrumId = strum.id;
   state.pointerStrumContext = strum;
@@ -3748,8 +3749,8 @@ function handlePointerEnd(event) {
   state.pointerDirection = null;
   state.pointerStringTimes = [];
   state.lastString = null;
-  if (strumSurface.hasPointerCapture(event.pointerId)) {
-    strumSurface.releasePointerCapture(event.pointerId);
+  if (guitarBody.hasPointerCapture(event.pointerId)) {
+    guitarBody.releasePointerCapture(event.pointerId);
   }
 
   if (shouldAutoAdvance) {
