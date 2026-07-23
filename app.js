@@ -37,12 +37,15 @@ const DEFAULT_SONG_NAME = "Untitled Song";
 const MAX_SECTION_NAME_LENGTH = 28;
 const MAX_SECTION_LYRICS_LENGTH = 1200;
 const MAX_SONG_NAME_LENGTH = 42;
-const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v173";
-const SERVICE_WORKER_SCRIPT = "service-worker.js?v=173";
+const SERVICE_WORKER_CACHE_NAME = "mini-guitar-v175";
+const SERVICE_WORKER_SCRIPT = "service-worker.js?v=175";
 const SECTION_SCROLL_TOP_OFFSET = 18;
 const SECTION_SCROLL_BOTTOM_OFFSET = 18;
 const SECTION_SCROLL_CONTEXT_GAP = 4;
 const CHORD_TOKEN_PATTERN = /^[A-G](?:#|b)?(?:maj|min|m|dim|aug|sus|add|M|\+|o)?[0-9A-Za-z#b+\-()]*?(?:\/[A-G](?:#|b)?)?$/;
+const SLASH_CHORD_PATTERN = /^(.+)\/([A-G](?:#|b)?)$/i;
+const SLASH_BASS_MAX_FRET = 11;
+const SLASH_BASS_STRINGS = [0, 1, 2];
 const STRUM_PROFILES = {
   down: {
     baseVelocity: 0.86,
@@ -2346,7 +2349,10 @@ function sanitizeLyricChordToken(token) {
 }
 
 function findChordByDisplayName(name) {
-  return findChordByName(name) ?? CHORD_LIBRARY.find((chord) => normalizeSearch(chord.name) === normalizeSearch(name)) ?? null;
+  return findChordByName(name)
+    ?? CHORD_LIBRARY.find((chord) => normalizeSearch(chord.name) === normalizeSearch(name))
+    ?? slashChordFromName(name)
+    ?? null;
 }
 
 function focusSelectedSequenceChord() {
@@ -3308,9 +3314,16 @@ function visibleChords() {
   }
 
   const query = normalizeSearch(state.searchQuery);
-  return CHORD_LIBRARY
+  const rankedChords = CHORD_LIBRARY
     .map((chord) => ({ chord, rank: chordSearchRank(chord, query) }))
-    .filter(({ rank }) => rank !== null)
+    .filter(({ rank }) => rank !== null);
+  const slashChord = slashChordFromName(state.searchQuery);
+
+  if (slashChord && !rankedChords.some(({ chord }) => normalizeSearch(chord.name) === normalizeSearch(slashChord.name))) {
+    rankedChords.push({ chord: slashChord, rank: 0 });
+  }
+
+  return rankedChords
     .sort((a, b) => a.rank - b.rank || compareChordNames(a.chord.name, b.chord.name))
     .map(({ chord }) => chord);
 }
@@ -3320,6 +3333,10 @@ function findChordByName(name) {
     return null;
   }
 
+  return findChordLibraryByName(name) ?? slashChordFromName(name);
+}
+
+function findChordLibraryByName(name) {
   return CHORD_LIBRARY.find((chord) => chord.name === name) ?? null;
 }
 
@@ -3373,6 +3390,111 @@ function normalizeSearch(value) {
 
 function compareChordNames(firstName, secondName) {
   return firstName.localeCompare(secondName, undefined, { numeric: true });
+}
+
+function slashChordFromName(name) {
+  const parsedChord = parseSlashChordName(name);
+
+  if (!parsedChord) {
+    return null;
+  }
+
+  const baseChord = findBaseChordForSlash(parsedChord.baseName);
+
+  if (!baseChord) {
+    return null;
+  }
+
+  const voicing = slashVoicingFor(baseChord.voicing, parsedChord.bassRoot.semitone);
+
+  if (!voicing) {
+    return null;
+  }
+
+  const aliasName = `${parsedChord.baseName}/${parsedChord.bassRoot.name}`;
+  const chordName = `${baseChord.name}/${parsedChord.bassRoot.name}`;
+
+  return {
+    name: chordName,
+    voicing,
+    aliases: normalizeSearch(aliasName) === normalizeSearch(chordName) ? [] : [aliasName],
+  };
+}
+
+function parseSlashChordName(name) {
+  const match = String(name ?? "").trim().replace(/\s+/g, "").match(SLASH_CHORD_PATTERN);
+
+  if (!match) {
+    return null;
+  }
+
+  const [, baseName, bassName] = match;
+  const bassRoot = rootFromName(bassName);
+
+  if (!baseName || !bassRoot) {
+    return null;
+  }
+
+  return { baseName, bassRoot };
+}
+
+function findBaseChordForSlash(baseName) {
+  const query = normalizeSearch(baseName);
+  return CHORD_LIBRARY.find((chord) =>
+    normalizeSearch(chord.name) === query || (chord.aliases ?? []).some((alias) => normalizeSearch(alias) === query)
+  ) ?? null;
+}
+
+function rootFromName(name) {
+  const query = normalizeSearch(name);
+  return ROOTS.find((root) => normalizeSearch(root.name) === query) ?? null;
+}
+
+function slashVoicingFor(baseVoicing, bassSemitone) {
+  const candidates = [];
+  const existingBassString = lowestSoundingStringIndex(baseVoicing);
+
+  if (existingBassString !== null && stringFretSemitone(existingBassString, baseVoicing[existingBassString]) === bassSemitone) {
+    candidates.push({ voicing: [...baseVoicing], score: voicingScore(baseVoicing) - 8 });
+  }
+
+  SLASH_BASS_STRINGS.forEach((stringIndex) => {
+    for (let fret = 0; fret <= SLASH_BASS_MAX_FRET; fret += 1) {
+      if (stringFretSemitone(stringIndex, fret) !== bassSemitone) {
+        continue;
+      }
+
+      const voicing = baseVoicing.map((baseFret, baseStringIndex) =>
+        baseStringIndex < stringIndex ? null : baseFret
+      );
+      voicing[stringIndex] = fret;
+
+      if (lowestSoundingStringIndex(voicing) !== stringIndex || soundingStringCount(voicing) < 3) {
+        continue;
+      }
+
+      const highFretPenalty = Math.max(0, fret - 7) * 8;
+      const bassStringPenalty = stringIndex * 12;
+      const replacedStringPenalty = baseVoicing[stringIndex] === null ? 0 : 3;
+      const score = voicingScore(voicing) + highFretPenalty + bassStringPenalty + replacedStringPenalty;
+      candidates.push({ voicing, score });
+    }
+  });
+
+  candidates.sort((first, second) => first.score - second.score);
+  return candidates.length ? candidates[0].voicing : null;
+}
+
+function lowestSoundingStringIndex(voicing) {
+  return voicing.findIndex((fret) => fret !== null);
+}
+
+function soundingStringCount(voicing) {
+  return voicing.filter((fret) => fret !== null).length;
+}
+
+function stringFretSemitone(stringIndex, fret) {
+  return (STRINGS[stringIndex].midi + fret) % 12;
 }
 
 function buildChordLibrary() {
